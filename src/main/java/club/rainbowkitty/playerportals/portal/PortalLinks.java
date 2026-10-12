@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.server.MinecraftServer;
@@ -49,39 +51,59 @@ public final class PortalLinks extends SavedData {
         return server.overworld().getDataStorage().computeIfAbsent(TYPE);
     }
 
+    /** Registers the start-up sweep that brings links and lit frames back in step. */
+    public static void register() {
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> of(server).reconcile(server));
+    }
+
     /** Where a portal in {@code frame} leads, if anywhere. */
     public @Nullable PortalFrame destinationOf(PortalFrame frame) {
         return destinations.get(frame);
     }
 
-    /** Lights {@code a} and {@code b}, both unlit and complete, as a two-way pair. */
-    public void link(MinecraftServer server, PortalFrame a, PortalFrame b) {
+    /**
+     * Lights {@code a} and {@code b}, both unlit and complete, as a two-way pair. False, with
+     * neither lit, when one is no longer complete by its turn, as when the two cross.
+     */
+    public boolean link(MinecraftServer server, PortalFrame a, PortalFrame b) {
         Portals portals = PlayerPortals.portals();
         // Lit first: lighting fades a stale record, which drops its old links, before the new.
-        portals.light(server, a);
-        portals.light(server, b);
+        if (!portals.light(server, a)) {
+            return false;
+        }
+        if (!portals.light(server, b)) {
+            portals.fade(server, a);
+            return false;
+        }
         destinations.put(a, b);
         destinations.put(b, a);
         setDirty();
+        return true;
     }
 
     /**
      * Lights the unlit, complete {@code source} as a one-way portal to {@code destination},
-     * lighting the destination too unless it already stands lit.
+     * lighting the destination too unless it already stands lit. False, with nothing lit, when
+     * either frame is no longer complete by its turn.
      */
-    public void linkOneWay(MinecraftServer server, PortalFrame source, PortalFrame destination) {
+    public boolean linkOneWay(MinecraftServer server, PortalFrame source, PortalFrame destination) {
         ServerLevel destinationLevel = server.getLevel(destination.dimension());
         if (destinationLevel == null) {
-            return;
+            return false;
         }
         Portals portals = PlayerPortals.portals();
-        portals.light(server, source);
-        if (!portals.has(server, destination)
-                || !portals.finder().isLit(destinationLevel, destination)) {
-            portals.light(server, destination);
+        if (!portals.light(server, source)) {
+            return false;
+        }
+        boolean standing = portals.has(server, destination)
+                && portals.finder().isLit(destinationLevel, destination);
+        if (!standing && !portals.light(server, destination)) {
+            portals.fade(server, source);
+            return false;
         }
         destinations.put(source, destination);
         setDirty();
+        return true;
     }
 
     /**
@@ -107,6 +129,31 @@ public final class PortalLinks extends SavedData {
         }
         if (onward != null && !isLinked(onward)) {
             portals.fade(server, onward);
+        }
+    }
+
+    // Frames and links are saved apart, so after a crash, or a command that cleared blocks
+    // behind the framework's back, one may name what the other lost: a link from or to an unlit
+    // frame goes, and a lit frame no link reaches fades.
+    private void reconcile(MinecraftServer server) {
+        Portals portals = PlayerPortals.portals();
+        Set<PortalFrame> lit = portals.lit(server);
+        List<PortalFrame> stale = new ArrayList<>();
+        destinations.forEach((from, to) -> {
+            if (!lit.contains(from) || !lit.contains(to)) {
+                stale.add(from);
+            }
+        });
+        for (PortalFrame from : stale) {
+            destinations.remove(from);
+        }
+        if (!stale.isEmpty()) {
+            setDirty();
+        }
+        for (PortalFrame frame : lit) {
+            if (!isLinked(frame)) {
+                portals.fade(server, frame);
+            }
         }
     }
 

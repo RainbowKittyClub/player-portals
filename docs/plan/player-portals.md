@@ -102,6 +102,14 @@ nether portal texture tinted `#0a4646` as an item model to a client with the pac
 vanilla client's own warp overlay and ambient portal sounds go with the real nether portal
 state; the break effect stays a nether portal's.
 
+**Links and lit frames are saved apart, so they are reconciled on start.** The framework keeps
+lit frames in its own file and this mod keeps destinations in `playerportals:links`; a crash
+between the two saves, or a command clearing blocks behind the removal hook, can leave one
+naming what the other lost. `PortalLinks.reconcile` runs at `SERVER_STARTED`: a link from or to
+an unlit frame goes, and a lit frame no link reaches fades. Linking also answers false when the
+framework refuses to light a frame that another portal lit a moment ago has cut across, and the
+catalyst says so instead of being consumed.
+
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
 the interior cascade to air (NetherPortalBlock.java:94-108). `affectNeighborsAfterRemoval` is the

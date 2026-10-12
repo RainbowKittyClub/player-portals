@@ -13,6 +13,7 @@ import club.rainbowkitty.playerportals.item.CatalystComponents;
 import club.rainbowkitty.playerportals.item.CatalystCrafting;
 import club.rainbowkitty.playerportals.item.CatalystItems;
 import club.rainbowkitty.playerportals.portal.PlayerPortalKind;
+import club.rainbowkitty.playerportals.portal.PortalLinks;
 import club.rainbowkitty.playerportals.portal.PortalMaterials;
 import club.rainbowkitty.playerportals.portal.PortalProtection;
 
@@ -49,6 +50,7 @@ public final class PlayerPortals implements ModInitializer {
         CatalystItems.init();
         PortalTabs.register();
         PortalProtection.register();
+        PortalLinks.register();
         CatalystCrafting.register();
         // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea, the
         // frame block as crying obsidian and the portal as a nether portal.

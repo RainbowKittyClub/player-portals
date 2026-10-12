@@ -54,7 +54,10 @@ public final class PortalCatalystItem extends CatalystItem {
             say(player, "catalyst.first_gone");
             return InteractionResult.CONSUME;
         }
-        PortalLinks.of(level.getServer()).link(level.getServer(), first, frame);
+        if (!PortalLinks.of(level.getServer()).link(level.getServer(), first, frame)) {
+            say(player, "catalyst.crossed");
+            return InteractionResult.CONSUME;
+        }
         stack.consume(1, player);
         say(player, "catalyst.linked", describe(first));
         return InteractionResult.SUCCESS;

@@ -17,6 +17,7 @@
   "playerportals.catalyst.attuned": "Attuned to a %s. Right-click another frame to link them.",
   "playerportals.catalyst.same_frame": "That is the frame the catalyst is attuned to.",
   "playerportals.catalyst.first_gone": "The attuned frame has changed. The catalyst is reset.",
+  "playerportals.catalyst.crossed": "Those frames cross each other, so neither can light.",
   "playerportals.catalyst.linked": "Portals linked to the %s.",
   "playerportals.catalyst.cleared": "Catalyst reset.",
   "playerportals.catalyst.no_permission": "You may not link portals.",

@@ -61,7 +61,10 @@ public final class AdminCatalystItem extends CatalystItem {
             say(player, "catalyst.first_gone");
             return InteractionResult.CONSUME;
         }
-        PortalLinks.of(level.getServer()).linkOneWay(level.getServer(), frame, destination);
+        if (!PortalLinks.of(level.getServer()).linkOneWay(level.getServer(), frame, destination)) {
+            say(player, "catalyst.crossed");
+            return InteractionResult.CONSUME;
+        }
         say(player, "admin.linked", describe(destination));
         return InteractionResult.SUCCESS;
     }
