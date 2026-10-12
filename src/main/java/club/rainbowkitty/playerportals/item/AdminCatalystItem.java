@@ -14,7 +14,7 @@ import club.rainbowkitty.playerportals.portal.PortalEffects;
 import club.rainbowkitty.playerportals.portal.PortalRegistry;
 
 /**
- * Makes one-way portals: the first click picks the destination, lit or not; each click after
+ * Makes one-way portals: a sneaking click picks the destination, lit or not; each plain click
  * lights an unlit frame of any shape as a portal that leads there. Never used up.
  */
 public final class AdminCatalystItem extends CatalystItem {
@@ -35,12 +35,16 @@ public final class AdminCatalystItem extends CatalystItem {
     @Override
     protected InteractionResult onFrame(ServerLevel level, ServerPlayer player, ItemStack stack,
             PortalFrame frame) {
-        PortalFrame destination = stack.get(CatalystComponents.ATTUNED);
-        if (destination == null) {
+        if (player.isShiftKeyDown()) {
             attune(stack, frame);
             PortalEffects.attuned(level, frame);
             say(player, "admin.destination_set", describe(frame));
             return InteractionResult.SUCCESS;
+        }
+        PortalFrame destination = stack.get(CatalystComponents.ATTUNED);
+        if (destination == null) {
+            say(player, "admin.no_destination");
+            return InteractionResult.CONSUME;
         }
         if (destination.equals(frame)) {
             say(player, "catalyst.same_frame");

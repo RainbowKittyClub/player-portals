@@ -18,7 +18,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.TickTask;
@@ -26,15 +25,13 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.datafix.DataFixTypes;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.saveddata.SavedData;
 import net.minecraft.world.level.saveddata.SavedDataType;
 
 import club.rainbowkitty.playerportals.PlayerPortals;
-import club.rainbowkitty.playerportals.frame.FrameSignature;
+import club.rainbowkitty.playerportals.frame.FrameFinder;
 import club.rainbowkitty.playerportals.frame.PortalFrame;
 
 /**
@@ -48,8 +45,8 @@ import club.rainbowkitty.playerportals.frame.PortalFrame;
  */
 public final class PortalRegistry extends SavedData {
     private static final Codec<PortalRegistry> CODEC = RecordCodecBuilder.create(instance ->
-            instance.group(LitPortal.CODEC.listOf().fieldOf("portals")
-                            .forGetter(registry -> List.copyOf(registry.portals.values())),
+            instance.group(PortalFrame.CODEC.listOf().fieldOf("portals")
+                            .forGetter(registry -> List.copyOf(registry.portals)),
                     Link.CODEC.listOf().fieldOf("links").forGetter(PortalRegistry::links),
                     PortalFrame.CODEC.listOf().fieldOf("pending")
                             .forGetter(registry -> List.copyOf(registry.pending)))
@@ -59,9 +56,9 @@ public final class PortalRegistry extends SavedData {
             PlayerPortals.id("portals"), PortalRegistry::new, CODEC,
             DataFixTypes.SAVED_DATA_COMMAND_STORAGE);
 
-    private final Map<PortalFrame, LitPortal> portals = new HashMap<>();
+    private final Set<PortalFrame> portals = new HashSet<>();
     private final Map<PortalFrame, PortalFrame> destinations = new HashMap<>();
-    private final Map<ResourceKey<Level>, Long2ObjectMap<List<LitPortal>>> byChunk =
+    private final Map<ResourceKey<Level>, Long2ObjectMap<List<PortalFrame>>> byChunk =
             new HashMap<>();
     // Dead portals whose blocks still stand in chunks that were not loaded when they died.
     private final Set<PortalFrame> pending = new HashSet<>();
@@ -69,7 +66,7 @@ public final class PortalRegistry extends SavedData {
     private PortalRegistry() {
     }
 
-    private PortalRegistry(List<LitPortal> lit, List<Link> links, List<PortalFrame> pending) {
+    private PortalRegistry(List<PortalFrame> lit, List<Link> links, List<PortalFrame> pending) {
         lit.forEach(this::add);
         for (Link link : links) {
             destinations.put(link.from(), link.to());
@@ -88,57 +85,29 @@ public final class PortalRegistry extends SavedData {
                 of(level.getServer()).onChunkLoad(level, chunk.getPos()));
     }
 
-    /** Whether every interior block of {@code frame} is the portal block in its plane. */
-    public static boolean isLit(LevelReader level, PortalFrame frame) {
-        for (BlockPos pos : frame.interior()) {
-            if (!PortalBlock.isPortal(level.getBlockState(pos), frame.plane())) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /** The lit portal standing in {@code frame}, if any. */
-    public @Nullable LitPortal get(PortalFrame frame) {
-        return portals.get(frame);
+    /** Whether a lit portal stands in {@code frame}. */
+    public boolean has(PortalFrame frame) {
+        return portals.contains(frame);
     }
 
     /** The lit portal whose interior holds {@code pos}, if any. */
-    public @Nullable LitPortal portalAt(ResourceKey<Level> dimension, BlockPos pos) {
-        for (LitPortal portal : candidates(dimension, pos)) {
-            if (portal.frame().interiorContains(pos)) {
-                return portal;
+    public @Nullable PortalFrame portalAt(ResourceKey<Level> dimension, BlockPos pos) {
+        for (PortalFrame frame : candidates(dimension, pos)) {
+            if (frame.interiorContains(pos)) {
+                return frame;
             }
         }
         return null;
     }
 
     /** The lit portal whose interior or ring holds {@code pos}, if any. */
-    public @Nullable LitPortal portalOwning(ResourceKey<Level> dimension, BlockPos pos) {
-        for (LitPortal portal : candidates(dimension, pos)) {
-            if (portal.frame().interiorContains(pos) || portal.frame().ringContains(pos)) {
-                return portal;
+    public @Nullable PortalFrame portalOwning(ResourceKey<Level> dimension, BlockPos pos) {
+        for (PortalFrame frame : candidates(dimension, pos)) {
+            if (frame.interiorContains(pos) || frame.ringContains(pos)) {
+                return frame;
             }
         }
         return null;
-    }
-
-    /**
-     * Whether the block at {@code neighbourPos}, now the full block {@code state}, still fits the
-     * portal holding {@code interiorPos}: the ring block it was lit with, and never an interior
-     * block. True for a block no lit portal owns.
-     */
-    public boolean ringMatches(ResourceKey<Level> dimension, BlockPos interiorPos,
-            BlockPos neighbourPos, BlockState state) {
-        LitPortal portal = portalAt(dimension, interiorPos);
-        if (portal == null) {
-            return true;
-        }
-        Identifier expected = portal.signature().at(portal.frame(), neighbourPos);
-        if (expected == null) {
-            return !portal.frame().interiorContains(neighbourPos);
-        }
-        return expected.equals(FrameSignature.idOf(state));
     }
 
     /** Where a portal in {@code frame} leads, if anywhere. */
@@ -146,13 +115,12 @@ public final class PortalRegistry extends SavedData {
         return destinations.get(frame);
     }
 
-    /** Lights {@code a} and {@code b}, both unlit and of one signature, as a two-way pair. */
-    public void link(MinecraftServer server, PortalFrame a, PortalFrame b,
-            FrameSignature signature) {
+    /** Lights {@code a} and {@code b}, both unlit, as a two-way pair. */
+    public void link(MinecraftServer server, PortalFrame a, PortalFrame b) {
         forgetStale(server, a);
         forgetStale(server, b);
-        add(new LitPortal(a, signature));
-        add(new LitPortal(b, signature));
+        add(a);
+        add(b);
         destinations.put(a, b);
         destinations.put(b, a);
         setDirty();
@@ -165,18 +133,17 @@ public final class PortalRegistry extends SavedData {
      * destination too when it is not a portal yet.
      */
     public void linkOneWay(MinecraftServer server, PortalFrame source, PortalFrame destination) {
-        ServerLevel sourceLevel = server.getLevel(source.dimension());
         ServerLevel destinationLevel = server.getLevel(destination.dimension());
-        if (sourceLevel == null || destinationLevel == null) {
+        if (destinationLevel == null) {
             return;
         }
         forgetStale(server, source);
-        if (portals.containsKey(destination) && !isLit(destinationLevel, destination)) {
+        if (portals.contains(destination) && !FrameFinder.isLit(destinationLevel, destination)) {
             remove(server, destination);
         }
-        add(new LitPortal(source, FrameSignature.read(sourceLevel, source)));
-        if (!portals.containsKey(destination)) {
-            add(new LitPortal(destination, FrameSignature.read(destinationLevel, destination)));
+        add(source);
+        if (!portals.contains(destination)) {
+            add(destination);
             light(server, destination);
         }
         destinations.put(source, destination);
@@ -188,6 +155,7 @@ public final class PortalRegistry extends SavedData {
      * Forgets the portal in {@code frame} and every link into or out of it, then every portal
      * left without a link, and clears all their blocks on a following tick, or when their chunks
      * next load. Deferred so a removal that starts inside a block update touches no other chunk.
+     * Each dead portal in loaded chunks fades audibly now, whichever path clears its blocks.
      */
     public void remove(MinecraftServer server, PortalFrame frame) {
         List<PortalFrame> dead = new ArrayList<>();
@@ -195,7 +163,7 @@ public final class PortalRegistry extends SavedData {
         queue.add(frame);
         while (!queue.isEmpty()) {
             PortalFrame gone = queue.poll();
-            if (portals.remove(gone) != null) {
+            if (portals.remove(gone)) {
                 unindex(gone);
                 dead.add(gone);
             }
@@ -221,22 +189,28 @@ public final class PortalRegistry extends SavedData {
         // Pending from now, so a stop before the task runs still clears them on the next load.
         pending.addAll(dead);
         setDirty();
+        for (PortalFrame deadFrame : dead) {
+            ServerLevel level = server.getLevel(deadFrame.dimension());
+            if (level != null && isLoaded(level, deadFrame)) {
+                PortalEffects.faded(level, deadFrame);
+            }
+        }
         server.schedule(new TickTask(server.getTickCount(),
                 () -> dead.forEach(deadFrame -> clearIfDead(server, deadFrame))));
     }
 
     /** Tells the registry one block of a portal at {@code pos} is gone, so the portal is. */
     public void onPortalBlockRemoved(ServerLevel level, BlockPos pos) {
-        LitPortal portal = portalAt(level.dimension(), pos);
-        if (portal != null) {
-            remove(level.getServer(), portal.frame());
+        PortalFrame frame = portalAt(level.dimension(), pos);
+        if (frame != null) {
+            remove(level.getServer(), frame);
         }
     }
 
     // A record whose blocks a command cleared without the removal hook, or that a crash left
     // behind, must not keep its old links once the frame is lit again.
     private void forgetStale(MinecraftServer server, PortalFrame frame) {
-        if (portals.containsKey(frame)) {
+        if (portals.contains(frame)) {
             remove(server, frame);
         }
     }
@@ -258,7 +232,7 @@ public final class PortalRegistry extends SavedData {
     // Clears the blocks of a dead portal whose chunks are loaded; one relit since stays, one in
     // unloaded chunks waits for them.
     private void clearIfDead(MinecraftServer server, PortalFrame frame) {
-        if (portals.containsKey(frame)) {
+        if (portals.contains(frame)) {
             pending.remove(frame);
             return;
         }
@@ -270,8 +244,6 @@ public final class PortalRegistry extends SavedData {
             if (level != null) {
                 unlight(level, frame);
             }
-        } else if (pending.add(frame)) {
-            setDirty();
         }
     }
 
@@ -285,32 +257,31 @@ public final class PortalRegistry extends SavedData {
         return links;
     }
 
-    private void add(LitPortal portal) {
-        portals.put(portal.frame(), portal);
-        Long2ObjectMap<List<LitPortal>> chunks = byChunk.computeIfAbsent(
-                portal.frame().dimension(), dimension -> new Long2ObjectOpenHashMap<>());
-        for (long chunk : portal.frame().chunks()) {
-            chunks.computeIfAbsent(chunk, key -> new ArrayList<>(1)).add(portal);
+    private void add(PortalFrame frame) {
+        portals.add(frame);
+        Long2ObjectMap<List<PortalFrame>> chunks = byChunk.computeIfAbsent(frame.dimension(),
+                dimension -> new Long2ObjectOpenHashMap<>());
+        for (long chunk : frame.chunks()) {
+            chunks.computeIfAbsent(chunk, key -> new ArrayList<>(1)).add(frame);
         }
     }
 
     private void unindex(PortalFrame frame) {
-        Long2ObjectMap<List<LitPortal>> chunks = byChunk.get(frame.dimension());
+        Long2ObjectMap<List<PortalFrame>> chunks = byChunk.get(frame.dimension());
         if (chunks == null) {
             return;
         }
         for (long chunk : frame.chunks()) {
-            List<LitPortal> inChunk = chunks.get(chunk);
-            if (inChunk != null && inChunk.removeIf(portal -> portal.frame().equals(frame))
-                    && inChunk.isEmpty()) {
+            List<PortalFrame> inChunk = chunks.get(chunk);
+            if (inChunk != null && inChunk.remove(frame) && inChunk.isEmpty()) {
                 chunks.remove(chunk);
             }
         }
     }
 
-    private List<LitPortal> candidates(ResourceKey<Level> dimension, BlockPos pos) {
-        Long2ObjectMap<List<LitPortal>> chunks = byChunk.get(dimension);
-        List<LitPortal> inChunk = chunks == null ? null : chunks.get(ChunkPos.pack(pos));
+    private List<PortalFrame> candidates(ResourceKey<Level> dimension, BlockPos pos) {
+        Long2ObjectMap<List<PortalFrame>> chunks = byChunk.get(dimension);
+        List<PortalFrame> inChunk = chunks == null ? null : chunks.get(ChunkPos.pack(pos));
         return inChunk == null ? List.of() : inChunk;
     }
 
@@ -346,30 +317,13 @@ public final class PortalRegistry extends SavedData {
         PortalEffects.lit(level, frame);
     }
 
+    // Destroyed, not set to air, so every block shatters as the ones the cascade takes do.
     private static void unlight(ServerLevel level, PortalFrame frame) {
-        boolean cleared = false;
         for (BlockPos pos : frame.interior()) {
             if (PortalBlock.isPortal(level.getBlockState(pos), frame.plane())) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
-                cleared = true;
+                level.destroyBlock(pos, false);
             }
         }
-        if (cleared) {
-            PortalEffects.faded(level, frame);
-        }
-    }
-
-    /**
-     * A lit portal.
-     *
-     * @param frame where it stands
-     * @param signature the pattern its ring had when it was lit
-     */
-    public record LitPortal(PortalFrame frame, FrameSignature signature) {
-        public static final Codec<LitPortal> CODEC = RecordCodecBuilder.create(instance -> instance
-                .group(PortalFrame.CODEC.fieldOf("frame").forGetter(LitPortal::frame),
-                        FrameSignature.CODEC.fieldOf("signature").forGetter(LitPortal::signature))
-                .apply(instance, LitPortal::new));
     }
 
     // One direction of travel, as saved.

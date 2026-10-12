@@ -82,6 +82,14 @@ crossing re-validates the far side. Dead partners are cleared on a later tick on
 chunks are loaded; otherwise they wait in a persisted `pending` list for `ServerChunkEvents.
 CHUNK_LOAD`, so no block update ever forces a chunk load in another dimension.
 
+**Pattern keying gave way to a dedicated frame block (user decision, 2026-10-12).** With a
+catalyst already choosing which two frames pair, a pattern key bought nothing but mismatch
+messages. A frame is now any closed ring of void-infused deepslate (deepslate plus an ender
+pearl; crying obsidian to a client without the pack, the same light 10) around an empty
+rectangle, any size, any plane, and any two link; the exit turns as a nether portal's does, a
+quarter turn between the X and Z planes. `FrameSignature` is gone, `updateShape` asks only
+whether an in-plane neighbour is portal or frame block, and feedback goes to chat.
+
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
 the interior cascade to air (NetherPortalBlock.java:94-108). `affectNeighborsAfterRemoval` is the
@@ -151,7 +159,9 @@ a slab in it, a 22-wide ring, and a ring around a non-empty interior.
 
 ### As built
 
-The ring leaves out the four corners after all, as a nether portal's does: a corner touches no
+Superseded in part the same day: the ring is now checked for one block, `FrameBlocks.
+VOID_DEEPSLATE`, and `FrameFinder.isLit` answers the lit case in one pass, so `FrameSignature`
+and `ringIndex` are gone. The ring leaves out the four corners, as a nether portal's does: a corner touches no
 interior block, so no shape update from it ever reaches the portal, and a corner in the pattern
 would change the key without the portal noticing until its next crossing. Otherwise as planned,
 with `find` taking a `Level` (it needs the dimension key) and `isComplete` a `LevelReader`, so
@@ -213,9 +223,13 @@ the registry whether an in-plane frame neighbour is still the block id the porta
 `setblock`s one ring block to gold saw both ends dark at its first poll. `PortalTravel` refuses a
 crossing when the entity does not fit the far frame or `isAllowedToEnterPortal`/`canTeleport`
 would veto it, each with its own line, instead of letting `handlePortal` drop the trip silently.
-The same check also asks `ringMatches` to fail for a full block set *inside* the interior, and
-the near side is re-read for completeness per crossing, since a block set without neighbour
-updates would otherwise leave a holed portal usable from its own side.
+The near side is re-read for completeness per crossing (`FrameFinder.isLit`), since a block
+set without neighbour updates would otherwise leave a holed portal usable from its own side.
+Later the same day: the fade sound and particles moved from `unlight` to `remove`, played for
+every dead portal whose chunks are loaded, so the broken portal itself fades audibly, not only
+a partner the registry clears; and `getPolymerBreakEventBlockState` answers a nether portal for
+every plane, so a flat portal's interior shatters like glass as an upright one's does, where the
+light stand-in broke in silence.
 And removal never forces a chunk load: dead partners whose chunks are loaded clear on a following
 tick, the rest wait in a persisted `pending` list for `ServerChunkEvents.CHUNK_LOAD`; a stale
 record under a frame being lit again is purged first (`forgetStale`), since `/fill` and
@@ -264,7 +278,11 @@ nothing; the admin catalyst makes two one-way portals to one destination and is 
 
 ### As built
 
-As planned, except the recipe book: no unlock advancement. It is reconciled on join
+Later the same day, on the user's request: the admin catalyst takes its destination from a
+sneaking click on any frame, lit or not, and a plain click with none set says so; a plain click
+with one set lights a source as before. The pair catalyst links any two complete unlit frames.
+Every line is chat, not the action bar. Otherwise as planned, except the recipe book: no unlock
+advancement for the catalyst (the frame block's recipe has an ordinary one). It is reconciled on join
 (`CatalystCrafting.register`), awarded to a player with `playerportals.craft` and removed from one
 without, because an advancement fires once and a player denied at that moment would never get the
 book entry back. That listener sits in a join phase ordered after Fabric's default one: LuckPerms
@@ -327,8 +345,10 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 26 legs, all PASS in about 1 min 50 s against a fresh dev
-server. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
+`scripts/loadtest/player-portals.js`, 33 legs after the frame-block rework, all PASS in about
+2 min 30 s against a fresh dev server, among them the quarter turn between an east–west and a
+north–south frame, the sneak-click destination, a shared ring column breaking both portals with
+the beacon sound heard, and a flat portal's interior shattering as nether portal blocks. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
 mod, its 335 findings all sit in `rk-tweaks` from before. Not covered by a leg: the "too
 small" refusal, the rider cooldown, and a dead partner clearing when its unloaded chunk loads
 (both ends are forceloaded in every leg). No remote exists yet for a push.
@@ -339,9 +359,6 @@ small" refusal, the rider cooldown, and a dead partner clearing when its unloade
   needs the resource pack, which would split rendering into a pack path and a vanilla path. What
   would revive it: a pack-only `ItemDisplay` of a dyed flat model per block, shown to pack clients
   instead of the block state, with vanilla clients keeping the nether portal look.
-- **Mirror images.** The signature is read in world order, so an asymmetric pattern must face the
-  same way at both ends. Reading it from both ends and taking the lexicographically smaller would
-  make mirrored frames match; decide once players have built a few.
 - **Arrival overlay.** A vanilla client decides the nether-portal warp overlay, trigger sound and
   closed screens from its own block, and the arrival stands inside the far portal, so a player who
   lingers there sees them until they step out, as after a vanilla nether crossing. Placing

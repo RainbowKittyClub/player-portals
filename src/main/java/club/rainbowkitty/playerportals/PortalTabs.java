@@ -7,11 +7,13 @@ import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.ItemStack;
 
+import club.rainbowkitty.playerportals.frame.FrameBlocks;
 import club.rainbowkitty.playerportals.item.CatalystItems;
 
 /**
- * This mod's creative tab, and the catalysts' places in vanilla's: the catalyst with tools, the
- * admin one with operator utilities. Polymer syncs both to clients running Polymer.
+ * This mod's creative tab, and its items' places in vanilla's: the frame block with building
+ * blocks, the catalyst with tools, the admin one with operator utilities. Polymer syncs both to
+ * clients running Polymer.
  */
 public final class PortalTabs {
     private PortalTabs() {
@@ -23,12 +25,15 @@ public final class PortalTabs {
                 .title(PlayerPortals.text().of("itemGroup." + PlayerPortals.MOD_ID + ".portals"))
                 .icon(() -> new ItemStack(CatalystItems.CATALYST))
                 .displayItems((params, output) -> {
+                    output.accept(new ItemStack(FrameBlocks.VOID_DEEPSLATE));
                     output.accept(new ItemStack(CatalystItems.CATALYST));
                     output.accept(new ItemStack(CatalystItems.ADMIN));
                 })
                 .build();
         PolymerCreativeModeTabUtils.registerPolymerCreativeModeTab(PlayerPortals.id("portals"),
                 tab);
+        CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.BUILDING_BLOCKS)
+                .register(output -> output.accept(new ItemStack(FrameBlocks.VOID_DEEPSLATE)));
         CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.TOOLS_AND_UTILITIES)
                 .register(output -> output.accept(new ItemStack(CatalystItems.CATALYST)));
         CreativeModeTabEvents.modifyOutputEvent(CreativeModeTabs.OP_BLOCKS).register(output -> {

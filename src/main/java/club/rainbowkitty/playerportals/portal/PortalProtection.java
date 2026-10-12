@@ -29,7 +29,7 @@ public final class PortalProtection {
             if (!portal || PortalPermissions.mayBreak(serverPlayer)) {
                 return true;
             }
-            serverPlayer.sendOverlayMessage(
+            serverPlayer.sendSystemMessage(
                     PlayerPortals.text().of(PlayerPortals.MOD_ID + ".break.no_permission"));
             return false;
         });

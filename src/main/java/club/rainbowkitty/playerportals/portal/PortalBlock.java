@@ -107,25 +107,18 @@ public final class PortalBlock extends Block implements Portal, PolymerBlock,
         return SHAPES.get(state.getValue(AXIS));
     }
 
-    // Air once an in-plane neighbour is neither portal of this plane nor the frame block the
-    // portal was lit with; the rest of the interior then cascades after it, as a nether portal's
-    // does. A frame block that turned into another block (copper weathering, powder setting)
-    // keeps its shape but not the pattern, so the portal fades now, not under its next user.
+    // Air once an in-plane neighbour is neither portal of this plane nor frame block; the rest
+    // of the interior then cascades after it, as a nether portal's does.
     @Override
     protected BlockState updateShape(BlockState state, LevelReader level,
             ScheduledTickAccess ticks, BlockPos pos, Direction direction, BlockPos neighbourPos,
             BlockState neighbourState, RandomSource random) {
         PortalPlane plane = PortalPlane.of(state.getValue(AXIS));
-        if (!plane.spans(direction.getAxis()) || isPortal(neighbourState, plane)) {
+        if (!plane.spans(direction.getAxis()) || isPortal(neighbourState, plane)
+                || FrameFinder.isFrameBlock(neighbourState)) {
             return state;
         }
-        if (!FrameFinder.isFrameBlock(neighbourState, level, neighbourPos)
-                || level instanceof ServerLevel serverLevel && !PortalRegistry.of(
-                        serverLevel.getServer()).ringMatches(serverLevel.dimension(), pos,
-                        neighbourPos, neighbourState)) {
-            return Blocks.AIR.defaultBlockState();
-        }
-        return state;
+        return Blocks.AIR.defaultBlockState();
     }
 
     @Override
@@ -157,6 +150,14 @@ public final class PortalBlock extends Block implements Portal, PolymerBlock,
     @Override
     public BlockState getPolymerBlockState(BlockState state, @Nullable PacketContext context) {
         return CLIENT_STATES.get(state.getValue(AXIS));
+    }
+
+    // A flat portal's stand-in is an invisible light block, which breaks without a sound; the
+    // break effect of every portal block is a nether portal's, glass shards and all.
+    @Override
+    public BlockState getPolymerBreakEventBlockState(BlockState state, PacketContext context) {
+        return CLIENT_STATES.get(state.getValue(AXIS) == Direction.Axis.Y
+                ? Direction.Axis.X : state.getValue(AXIS));
     }
 
     @Override

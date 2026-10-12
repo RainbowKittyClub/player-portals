@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "playerportals:block/void_infused_deepslate"
+  }
+}

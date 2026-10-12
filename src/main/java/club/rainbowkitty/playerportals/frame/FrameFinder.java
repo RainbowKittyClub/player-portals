@@ -4,7 +4,6 @@ import java.util.Optional;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.state.BlockState;
@@ -16,12 +15,9 @@ public final class FrameFinder {
     private FrameFinder() {
     }
 
-    /**
-     * Whether {@code state} may be part of a frame: any block whose collision is the full
-     * cube. A slab, a fence, a sapling and a fluid are not; glass, a furnace and bedrock are.
-     */
-    public static boolean isFrameBlock(BlockState state, BlockGetter level, BlockPos pos) {
-        return !state.isAir() && state.isCollisionShapeFullBlock(level, pos);
+    /** Whether {@code state} may be part of a frame: void-infused deepslate, nothing else. */
+    public static boolean isFrameBlock(BlockState state) {
+        return state.is(FrameBlocks.VOID_DEEPSLATE);
     }
 
     /**
@@ -49,17 +45,12 @@ public final class FrameFinder {
 
     /** Whether {@code frame} stands: every interior block interior, every ring block frame. */
     public static boolean isComplete(LevelReader level, PortalFrame frame) {
-        for (BlockPos pos : frame.interior()) {
-            if (!isInterior(level.getBlockState(pos), frame.plane())) {
-                return false;
-            }
-        }
-        for (BlockPos pos : frame.ring()) {
-            if (!isFrameBlock(level.getBlockState(pos), level, pos)) {
-                return false;
-            }
-        }
-        return true;
+        return hasRing(level, frame) && interiorIs(level, frame, false);
+    }
+
+    /** Whether {@code frame} stands lit: a complete ring around nothing but portal blocks. */
+    public static boolean isLit(LevelReader level, PortalFrame frame) {
+        return hasRing(level, frame) && interiorIs(level, frame, true);
     }
 
     /**
@@ -89,6 +80,27 @@ public final class FrameFinder {
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean hasRing(LevelReader level, PortalFrame frame) {
+        for (BlockPos pos : frame.ring()) {
+            if (!isFrameBlock(level.getBlockState(pos))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Whether every interior block is portal (litOnly) or air-or-portal.
+    private static boolean interiorIs(LevelReader level, PortalFrame frame, boolean litOnly) {
+        for (BlockPos pos : frame.interior()) {
+            BlockState state = level.getBlockState(pos);
+            boolean portal = PortalBlock.isPortal(state, frame.plane());
+            if (!(portal || !litOnly && state.isAir())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // How many interior blocks follow `from` along `axis` in the direction of `sign`, at most

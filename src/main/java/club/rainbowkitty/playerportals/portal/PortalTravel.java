@@ -7,17 +7,16 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.portal.TeleportTransition;
 
 import club.rainbowkitty.playerportals.PlayerPortals;
+import club.rainbowkitty.playerportals.frame.FrameFinder;
 import club.rainbowkitty.playerportals.frame.PortalFrame;
 
 /**
  * Answers a crossing: which portal the entity stands in, whether both ends still stand as they
- * were lit, whether it fits and may go, and where it comes out. Each answer reads at most one
- * ring and one interior, once per crossing.
+ * were lit, whether it fits and may go, and where it comes out. Each answer reads two frames,
+ * once per crossing.
  */
 public final class PortalTravel {
     private PortalTravel() {
@@ -26,31 +25,28 @@ public final class PortalTravel {
     /**
      * The transition for {@code entity}, standing in the portal block at {@code entryPos}, or
      * null when the portal leads nowhere, its ring has changed, or the far end is gone. A dead
-     * end is removed through the registry, and a player is told why in the action bar.
+     * end is removed through the registry, and a player is told why in chat.
      */
     public static @Nullable TeleportTransition destination(ServerLevel level, Entity entity,
             BlockPos entryPos) {
         MinecraftServer server = level.getServer();
         PortalRegistry registry = PortalRegistry.of(server);
-        PortalRegistry.LitPortal here = registry.portalAt(level.dimension(), entryPos);
+        PortalFrame here = registry.portalAt(level.dimension(), entryPos);
         if (here == null) {
             // A portal block no portal owns, say placed by command: clear it.
-            level.setBlock(entryPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            level.destroyBlock(entryPos, false);
             return refuse(entity, "portal.unlinked");
         }
-        if (!here.signature().matches(level, here.frame())
-                || !PortalRegistry.isLit(level, here.frame())) {
-            registry.remove(server, here.frame());
+        if (!FrameFinder.isLit(level, here)) {
+            registry.remove(server, here);
             return refuse(entity, "portal.frame_changed");
         }
-        PortalFrame to = registry.destinationOf(here.frame());
+        PortalFrame to = registry.destinationOf(here);
         if (to == null) {
             return refuse(entity, "portal.unlinked");
         }
         ServerLevel toLevel = server.getLevel(to.dimension());
-        PortalRegistry.LitPortal there = registry.get(to);
-        if (toLevel == null || there == null || !PortalRegistry.isLit(toLevel, to)
-                || !there.signature().matches(toLevel, to)) {
+        if (toLevel == null || !registry.has(to) || !FrameFinder.isLit(toLevel, to)) {
             registry.remove(server, to);
             return refuse(entity, "portal.broken");
         }
@@ -61,12 +57,12 @@ public final class PortalTravel {
         if (!level.isAllowedToEnterPortal(toLevel) || !entity.canTeleport(level, toLevel)) {
             return refuse(entity, "portal.cannot_travel");
         }
-        return PortalExit.transition(entity, here.frame(), toLevel, to);
+        return PortalExit.transition(entity, here, toLevel, to);
     }
 
     private static @Nullable TeleportTransition refuse(Entity entity, String key) {
         if (entity instanceof ServerPlayer player) {
-            player.sendOverlayMessage(PlayerPortals.text().of(PlayerPortals.MOD_ID + "." + key));
+            player.sendSystemMessage(PlayerPortals.text().of(PlayerPortals.MOD_ID + "." + key));
         }
         return null;
     }

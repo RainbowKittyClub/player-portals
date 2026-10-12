@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "playerportals:void_infused_deepslate"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "playerportals:blocks/void_infused_deepslate"
+}

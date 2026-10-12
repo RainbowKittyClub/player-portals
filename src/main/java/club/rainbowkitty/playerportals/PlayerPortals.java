@@ -6,6 +6,7 @@ import net.fabricmc.api.ModInitializer;
 import net.minecraft.resources.Identifier;
 
 import club.rainbowkitty.kalic0re.common.text.FallbackText;
+import club.rainbowkitty.playerportals.frame.FrameBlocks;
 import club.rainbowkitty.playerportals.item.CatalystComponents;
 import club.rainbowkitty.playerportals.item.CatalystCrafting;
 import club.rainbowkitty.playerportals.item.CatalystItems;
@@ -33,13 +34,15 @@ public final class PlayerPortals implements ModInitializer {
     public void onInitialize() {
         text = FallbackText.load(MOD_ID);
         CatalystComponents.init();
+        FrameBlocks.init();
         PortalBlocks.init();
         CatalystItems.init();
         PortalTabs.register();
         PortalProtection.register();
         PortalRegistry.register();
         CatalystCrafting.register();
-        // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea.
+        // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea and the
+        // frame block as crying obsidian.
         PolymerResourcePackUtils.addModAssets(MOD_ID);
     }
 }

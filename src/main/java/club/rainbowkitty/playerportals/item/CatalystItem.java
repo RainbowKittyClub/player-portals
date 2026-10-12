@@ -118,9 +118,9 @@ public abstract class CatalystItem extends PolymerModelItem {
         stack.set(DataComponents.LORE, new ItemLore(lines));
     }
 
-    /** Shows {@code key} under {@code playerportals.} in {@code player}'s action bar. */
+    /** Tells {@code player} the line under {@code playerportals.}{@code key}, in chat. */
     protected static void say(ServerPlayer player, String key, Object... args) {
-        player.sendOverlayMessage(
+        player.sendSystemMessage(
                 PlayerPortals.text().of(PlayerPortals.MOD_ID + "." + key, args));
     }
 

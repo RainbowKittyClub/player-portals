@@ -46,9 +46,9 @@ public final class CatalystCrafting {
         });
     }
 
-    /** Whether {@code recipe} is one of this mod's, by its id's namespace. */
+    /** Whether {@code recipe} is the catalyst's. The frame block's recipe is anyone's. */
     public static boolean isCatalystRecipe(RecipeHolder<?> recipe) {
-        return PlayerPortals.MOD_ID.equals(recipe.id().identifier().getNamespace());
+        return RECIPE.equals(recipe.id());
     }
 
     /** Whether {@code player} may not take the result of {@code recipe}. */

@@ -54,10 +54,7 @@ public record PortalFrame(ResourceKey<Level> dimension, BlockPos origin, PortalP
         return BlockPos.betweenClosed(origin, at(width - 1, height - 1));
     }
 
-    /**
-     * The ring in signature order: along the near side from the origin, up the far side, back
-     * along the top and down the near side.
-     */
+    /** The ring: along the near side from the origin, up the far side, back and down. */
     public List<BlockPos> ring() {
         List<BlockPos> ring = new ArrayList<>(ringSize());
         for (int u = 0; u < width; u++) {
@@ -91,25 +88,6 @@ public record PortalFrame(ResourceKey<Level> dimension, BlockPos origin, PortalP
         int v = up(pos);
         return inPlane(pos) && (inside(u, width) && (v == -1 || v == height)
                 || inside(v, height) && (u == -1 || u == width));
-    }
-
-    /** Where {@code pos} falls in {@link #ring} order, or -1 when it is not on the ring. */
-    public int ringIndex(BlockPos pos) {
-        if (!ringContains(pos)) {
-            return -1;
-        }
-        int u = along(pos);
-        int v = up(pos);
-        if (v == -1) {
-            return u;
-        }
-        if (u == width) {
-            return width + v;
-        }
-        if (v == height) {
-            return width + height + (width - 1 - u);
-        }
-        return 2 * width + height + (height - 1 - v);
     }
 
     /** Whether this frame's plane, width and height equal {@code other}'s. */
