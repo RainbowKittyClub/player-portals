@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "club.rainbowkitty.playerportals.mixin",
+  "compatibilityLevel": "JAVA_${project.java_version}",
+  "mixins": [
+    "CrafterBlockMixin",
+    "CraftingMenuMixin",
+    "HandClicksMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

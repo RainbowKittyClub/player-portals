@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": "minecraft:echo_shard",
+    "N": "minecraft:nether_star",
+    "P": "minecraft:ender_pearl"
+  },
+  "pattern": [
+    "EPE",
+    "PNP",
+    "EPE"
+  ],
+  "result": {
+    "count": 1,
+    "id": "playerportals:portal_catalyst"
+  }
+}
