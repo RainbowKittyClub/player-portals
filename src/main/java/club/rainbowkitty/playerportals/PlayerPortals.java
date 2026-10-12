@@ -5,20 +5,23 @@ import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.Identifier;
 
+import club.rainbowkitty.kalic0re.common.portal.PortalBlock;
+import club.rainbowkitty.kalic0re.common.portal.Portals;
 import club.rainbowkitty.kalic0re.common.text.FallbackText;
 import club.rainbowkitty.playerportals.frame.FrameBlocks;
 import club.rainbowkitty.playerportals.item.CatalystComponents;
 import club.rainbowkitty.playerportals.item.CatalystCrafting;
 import club.rainbowkitty.playerportals.item.CatalystItems;
-import club.rainbowkitty.playerportals.portal.PortalBlocks;
+import club.rainbowkitty.playerportals.portal.PlayerPortalKind;
+import club.rainbowkitty.playerportals.portal.PortalMaterials;
 import club.rainbowkitty.playerportals.portal.PortalProtection;
-import club.rainbowkitty.playerportals.portal.PortalRegistry;
 
 /** Mod entrypoint. */
 public final class PlayerPortals implements ModInitializer {
     public static final String MOD_ID = "playerportals";
 
     private static FallbackText text;
+    private static Portals portals;
 
     /** {@code playerportals:<path>} identifier. */
     public static Identifier id(String path) {
@@ -30,19 +33,25 @@ public final class PlayerPortals implements ModInitializer {
         return text;
     }
 
+    /** This mod's portals: block, frames and lit registry, from kalic0re's portal framework. */
+    public static Portals portals() {
+        return portals;
+    }
+
     @Override
     public void onInitialize() {
         text = FallbackText.load(MOD_ID);
         CatalystComponents.init();
         FrameBlocks.init();
-        PortalBlocks.init();
+        PortalMaterials.init();
+        portals = Portals.register(MOD_ID, "portal", new PlayerPortalKind(),
+                PortalBlock.defaultProperties());
         CatalystItems.init();
         PortalTabs.register();
         PortalProtection.register();
-        PortalRegistry.register();
         CatalystCrafting.register();
-        // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea and the
-        // frame block as crying obsidian.
+        // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea, the
+        // frame block as crying obsidian and the portal as a nether portal.
         PolymerResourcePackUtils.addModAssets(MOD_ID);
     }
 }

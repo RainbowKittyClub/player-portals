@@ -7,11 +7,11 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
+import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.PortalPermissions;
-import club.rainbowkitty.playerportals.frame.FrameFinder;
-import club.rainbowkitty.playerportals.frame.PortalFrame;
 import club.rainbowkitty.playerportals.portal.PortalEffects;
-import club.rainbowkitty.playerportals.portal.PortalRegistry;
+import club.rainbowkitty.playerportals.portal.PortalLinks;
 
 /** Links two unlit frames of any shape into a two-way pair, and is used up doing it. */
 public final class PortalCatalystItem extends CatalystItem {
@@ -48,13 +48,13 @@ public final class PortalCatalystItem extends CatalystItem {
             return InteractionResult.CONSUME;
         }
         ServerLevel firstLevel = level.getServer().getLevel(first.dimension());
-        if (firstLevel == null || !FrameFinder.isComplete(firstLevel, first)
+        if (firstLevel == null || !PlayerPortals.portals().finder().isComplete(firstLevel, first)
                 || !firstLevel.getBlockState(first.origin()).isAir()) {
             attune(stack, null);
             say(player, "catalyst.first_gone");
             return InteractionResult.CONSUME;
         }
-        PortalRegistry.of(level.getServer()).link(level.getServer(), first, frame);
+        PortalLinks.of(level.getServer()).link(level.getServer(), first, frame);
         stack.consume(1, player);
         say(player, "catalyst.linked", describe(first));
         return InteractionResult.SUCCESS;

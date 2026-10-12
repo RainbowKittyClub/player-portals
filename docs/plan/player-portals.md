@@ -90,6 +90,18 @@ rectangle, any size, any plane, and any two link; the exit turns as a nether por
 quarter turn between the X and Z planes. `FrameSignature` is gone, `updateShape` asks only
 whether an in-plane neighbour is portal or frame block, and feedback goes to chat.
 
+**The portal machinery moved to kalic0re `common/portal` (user decision, 2026-10-12).** Frame
+geometry, the portal block, the lit-frame store, the per-block display and the exit math are now
+kalic0re 0.27.0's framework (`rkc/mods/kalic0re/docs/plan/portal-framework.md`); this mod keeps
+a `PlayerPortalKind` (frame block, material, sounds, where a crossing goes), `PortalLinks` for
+destinations, the catalysts and the gates. The look is one material for upright and flat portals
+alike: every portal block is an invisible light to the client, and a display per block shows the
+nether portal texture tinted `#0a4646` as an item model to a client with the pack
+(`scripts/tint_portal_texture.py` makes it from the vanilla texture) and
+`nether_portal[axis=x]` as a block display to any other, turned for the Z and flat planes. The
+vanilla client's own warp overlay and ambient portal sounds go with the real nether portal
+state; the break effect stays a nether portal's.
+
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
 the interior cascade to air (NetherPortalBlock.java:94-108). `affectNeighborsAfterRemoval` is the
@@ -345,8 +357,9 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 33 legs after the frame-block rework, all PASS in about
-2 min 30 s against a fresh dev server, among them the quarter turn between an east–west and a
+`scripts/loadtest/player-portals.js`, 39 legs after the frame-block and framework reworks, all
+PASS in about 2 min 30 s against a fresh dev server, among them one `item_display` per interior
+block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
 the beacon sound heard, and a flat portal's interior shattering as nether portal blocks. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
 mod, its 335 findings all sit in `rk-tweaks` from before. Not covered by a leg: the "too
@@ -359,10 +372,10 @@ small" refusal, the rider cooldown, and a dead partner clearing when its unloade
   needs the resource pack, which would split rendering into a pack path and a vanilla path. What
   would revive it: a pack-only `ItemDisplay` of a dyed flat model per block, shown to pack clients
   instead of the block state, with vanilla clients keeping the nether portal look.
-- **Arrival overlay.** A vanilla client decides the nether-portal warp overlay, trigger sound and
-  closed screens from its own block, and the arrival stands inside the far portal, so a player who
-  lingers there sees them until they step out, as after a vanilla nether crossing. Placing
-  arrivals one block past the far plane would trade this for obstruction handling; left as is.
+- **Arrival overlay.** Moot since the move to display-drawn portals: the client's block is a
+  light, so no warp overlay, trigger sound or closed screen; the trip plays vanilla's portal
+  travel sound through `PLAY_PORTAL_SOUND`. Ambient portal particles and sound would need the
+  server to send them, the mod's first per-tick cost, and are not sent.
 - **Smallest frame.** 1×1 is allowed (items and small mobs fit); raise the minimum if players find
   stray 1×1 portals confusing.
 

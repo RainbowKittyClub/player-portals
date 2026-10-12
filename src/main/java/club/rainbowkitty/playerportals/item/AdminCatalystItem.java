@@ -7,11 +7,11 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
+import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.PortalPermissions;
-import club.rainbowkitty.playerportals.frame.FrameFinder;
-import club.rainbowkitty.playerportals.frame.PortalFrame;
 import club.rainbowkitty.playerportals.portal.PortalEffects;
-import club.rainbowkitty.playerportals.portal.PortalRegistry;
+import club.rainbowkitty.playerportals.portal.PortalLinks;
 
 /**
  * Makes one-way portals: a sneaking click picks the destination, lit or not; each plain click
@@ -55,12 +55,13 @@ public final class AdminCatalystItem extends CatalystItem {
             return InteractionResult.CONSUME;
         }
         ServerLevel destinationLevel = level.getServer().getLevel(destination.dimension());
-        if (destinationLevel == null || !FrameFinder.isComplete(destinationLevel, destination)) {
+        if (destinationLevel == null
+                || !PlayerPortals.portals().finder().isComplete(destinationLevel, destination)) {
             attune(stack, null);
             say(player, "catalyst.first_gone");
             return InteractionResult.CONSUME;
         }
-        PortalRegistry.of(level.getServer()).linkOneWay(level.getServer(), frame, destination);
+        PortalLinks.of(level.getServer()).linkOneWay(level.getServer(), frame, destination);
         say(player, "admin.linked", describe(destination));
         return InteractionResult.SUCCESS;
     }

@@ -10,7 +10,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.phys.Vec3;
 
-import club.rainbowkitty.playerportals.frame.PortalFrame;
+import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 
 /** The sound and particles each change to a portal makes, at its frame. */
 public final class PortalEffects {

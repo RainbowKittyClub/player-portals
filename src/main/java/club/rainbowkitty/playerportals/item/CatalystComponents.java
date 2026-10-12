@@ -6,8 +6,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 
+import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.playerportals.PlayerPortals;
-import club.rainbowkitty.playerportals.frame.PortalFrame;
 
 /** The item component a catalyst carries between its two clicks. */
 public final class CatalystComponents {

@@ -26,15 +26,14 @@ import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 
 import club.rainbowkitty.kalic0re.common.item.PolymerModelItem;
+import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.playerportals.PlayerPortals;
-import club.rainbowkitty.playerportals.frame.FrameFinder;
-import club.rainbowkitty.playerportals.frame.PortalFrame;
 
 /**
  * An item that works in two clicks on frame blocks: the first attunes it to that frame, the
  * second acts on the pair. A vanilla client sees a heart of the sea under this item's name, with
  * the attuned frame as a lore line; a client with the resource pack sees the item's own art.
- * Sneak-use on nothing clears the attunement.
+ * Sneak-use on nothing clears the attunement. Every line is said in chat.
  */
 public abstract class CatalystItem extends PolymerModelItem {
     private static final Style HINT = Style.EMPTY.withColor(ChatFormatting.GRAY).withItalic(false);
@@ -70,8 +69,8 @@ public abstract class CatalystItem extends PolymerModelItem {
             say(player, deniedKey());
             return InteractionResult.CONSUME;
         }
-        Optional<PortalFrame> frame =
-                FrameFinder.findAround(level, context.getClickedPos(), context.getClickedFace());
+        Optional<PortalFrame> frame = PlayerPortals.portals().finder()
+                .findAround(level, context.getClickedPos(), context.getClickedFace());
         if (frame.isEmpty()) {
             say(player, "catalyst.no_frame");
             return InteractionResult.CONSUME;

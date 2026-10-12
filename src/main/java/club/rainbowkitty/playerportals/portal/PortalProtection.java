@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
+import club.rainbowkitty.kalic0re.common.portal.Portals;
 import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.PortalPermissions;
 
@@ -24,8 +25,9 @@ public final class PortalProtection {
                     || !(player instanceof ServerPlayer serverPlayer)) {
                 return true;
             }
-            boolean portal = state.is(PortalBlocks.PORTAL) || PortalRegistry.of(
-                    serverLevel.getServer()).portalOwning(serverLevel.dimension(), pos) != null;
+            Portals portals = PlayerPortals.portals();
+            boolean portal = state.is(portals.block())
+                    || portals.portalOwning(serverLevel, pos) != null;
             if (!portal || PortalPermissions.mayBreak(serverPlayer)) {
                 return true;
             }

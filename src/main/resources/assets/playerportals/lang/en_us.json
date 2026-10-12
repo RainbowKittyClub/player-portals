@@ -1,6 +1,7 @@
 {
   "itemGroup.playerportals.portals": "Player Portals",
   "block.playerportals.portal": "Portal",
+  "item.playerportals.portal_material": "Portal",
   "block.playerportals.void_infused_deepslate": "Void-Infused Deepslate",
   "item.playerportals.portal_catalyst": "Portal Catalyst",
   "item.playerportals.portal_catalyst.tooltip": "Right-click two frames of void-infused deepslate to link them.",
@@ -26,7 +27,6 @@
   "playerportals.admin.no_permission": "Only an operator may use the admin catalyst.",
   "playerportals.portal.unlinked": "This portal leads nowhere.",
   "playerportals.portal.broken": "The other side of this portal is gone.",
-  "playerportals.portal.frame_changed": "The frame is broken, and the portal fades.",
   "playerportals.portal.too_small": "This portal is too small for you.",
   "playerportals.portal.cannot_travel": "This portal cannot take you there.",
   "playerportals.break.no_permission": "You may not break a portal."
