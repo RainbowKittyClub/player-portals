@@ -14,7 +14,8 @@ import net.minecraft.world.level.Level;
 
 /**
  * Where a portal stands: a rectangle of interior blocks and the ring of frame blocks one block
- * out around it, corners included.
+ * out around it. The four corners are not part of the ring, as they are not of a nether portal's:
+ * they touch no interior block, so no shape update from them could ever reach the portal.
  *
  * @param dimension the level the frame is in
  * @param origin the interior block with the smallest coordinate on both in-plane axes
@@ -54,18 +55,18 @@ public record PortalFrame(ResourceKey<Level> dimension, BlockPos origin, PortalP
     }
 
     /**
-     * The ring in signature order: from the corner before the origin, along the near side, up the
-     * far side, back along the top and down the near side.
+     * The ring in signature order: along the near side from the origin, up the far side, back
+     * along the top and down the near side.
      */
     public List<BlockPos> ring() {
         List<BlockPos> ring = new ArrayList<>(ringSize());
-        for (int u = -1; u <= width; u++) {
+        for (int u = 0; u < width; u++) {
             ring.add(at(u, -1));
         }
         for (int v = 0; v < height; v++) {
             ring.add(at(width, v));
         }
-        for (int u = width; u >= -1; u--) {
+        for (int u = width - 1; u >= 0; u--) {
             ring.add(at(u, height));
         }
         for (int v = height - 1; v >= 0; v--) {
@@ -76,7 +77,7 @@ public record PortalFrame(ResourceKey<Level> dimension, BlockPos origin, PortalP
 
     /** How many blocks the ring has. */
     public int ringSize() {
-        return 2 * (width + height) + 4;
+        return 2 * (width + height);
     }
 
     /** Whether {@code pos} is one of the interior blocks. */
@@ -88,8 +89,8 @@ public record PortalFrame(ResourceKey<Level> dimension, BlockPos origin, PortalP
     public boolean ringContains(BlockPos pos) {
         int u = along(pos);
         int v = up(pos);
-        return inPlane(pos) && u >= -1 && u <= width && v >= -1 && v <= height
-                && !(inside(u, width) && inside(v, height));
+        return inPlane(pos) && (inside(u, width) && (v == -1 || v == height)
+                || inside(v, height) && (u == -1 || u == width));
     }
 
     /** Where {@code pos} falls in {@link #ring} order, or -1 when it is not on the ring. */
@@ -99,17 +100,16 @@ public record PortalFrame(ResourceKey<Level> dimension, BlockPos origin, PortalP
         }
         int u = along(pos);
         int v = up(pos);
-        int side = width + 2;
         if (v == -1) {
-            return u + 1;
+            return u;
         }
         if (u == width) {
-            return side + v;
+            return width + v;
         }
         if (v == height) {
-            return side + height + (width - u);
+            return width + height + (width - 1 - u);
         }
-        return side + height + side + (height - 1 - v);
+        return 2 * width + height + (height - 1 - v);
     }
 
     /** Whether this frame's plane, width and height equal {@code other}'s. */

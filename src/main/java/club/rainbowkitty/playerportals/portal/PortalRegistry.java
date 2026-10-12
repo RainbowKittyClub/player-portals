@@ -124,17 +124,21 @@ public final class PortalRegistry extends SavedData {
     }
 
     /**
-     * Whether the ring block at {@code ringPos}, now {@code state}, is still the block the portal
-     * holding {@code interiorPos} was lit with. True for a block no lit portal owns.
+     * Whether the block at {@code neighbourPos}, now the full block {@code state}, still fits the
+     * portal holding {@code interiorPos}: the ring block it was lit with, and never an interior
+     * block. True for a block no lit portal owns.
      */
     public boolean ringMatches(ResourceKey<Level> dimension, BlockPos interiorPos,
-            BlockPos ringPos, BlockState state) {
+            BlockPos neighbourPos, BlockState state) {
         LitPortal portal = portalAt(dimension, interiorPos);
         if (portal == null) {
             return true;
         }
-        Identifier expected = portal.signature().at(portal.frame(), ringPos);
-        return expected == null || expected.equals(FrameSignature.idOf(state));
+        Identifier expected = portal.signature().at(portal.frame(), neighbourPos);
+        if (expected == null) {
+            return !portal.frame().interiorContains(neighbourPos);
+        }
+        return expected.equals(FrameSignature.idOf(state));
     }
 
     /** Where a portal in {@code frame} leads, if anywhere. */
@@ -167,6 +171,9 @@ public final class PortalRegistry extends SavedData {
             return;
         }
         forgetStale(server, source);
+        if (portals.containsKey(destination) && !isLit(destinationLevel, destination)) {
+            remove(server, destination);
+        }
         add(new LitPortal(source, FrameSignature.read(sourceLevel, source)));
         if (!portals.containsKey(destination)) {
             add(new LitPortal(destination, FrameSignature.read(destinationLevel, destination)));
@@ -211,6 +218,8 @@ public final class PortalRegistry extends SavedData {
         if (dead.isEmpty()) {
             return;
         }
+        // Pending from now, so a stop before the task runs still clears them on the next load.
+        pending.addAll(dead);
         setDirty();
         server.schedule(new TickTask(server.getTickCount(),
                 () -> dead.forEach(deadFrame -> clearIfDead(server, deadFrame))));

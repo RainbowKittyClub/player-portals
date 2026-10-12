@@ -38,7 +38,8 @@ public final class PortalTravel {
             level.setBlock(entryPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             return refuse(entity, "portal.unlinked");
         }
-        if (!here.signature().matches(level, here.frame())) {
+        if (!here.signature().matches(level, here.frame())
+                || !PortalRegistry.isLit(level, here.frame())) {
             registry.remove(server, here.frame());
             return refuse(entity, "portal.frame_changed");
         }

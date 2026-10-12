@@ -151,8 +151,11 @@ a slab in it, a 22-wide ring, and a ring around a non-empty interior.
 
 ### As built
 
-As planned, with `find` taking a `Level` (it needs the dimension key) and `isComplete` a
-`LevelReader`, so the block's `updateShape` can reuse the frame-block test. `PortalFrame` grew
+The ring leaves out the four corners after all, as a nether portal's does: a corner touches no
+interior block, so no shape update from it ever reaches the portal, and a corner in the pattern
+would change the key without the portal noticing until its next crossing. Otherwise as planned,
+with `find` taking a `Level` (it needs the dimension key) and `isComplete` a `LevelReader`, so
+the block's `updateShape` can reuse the frame-block test. `PortalFrame` grew
 `ringIndex`, the inverse of `ring()` order, for the in-place ring check added to S3. Bot legs
 observed the attune line for all three orientations ("2×3 east–west", "2×3 north–south",
 "3×2 flat"), a click on the side ring block of a flat frame, and refusals for a gold block in a
@@ -210,6 +213,9 @@ the registry whether an in-plane frame neighbour is still the block id the porta
 `setblock`s one ring block to gold saw both ends dark at its first poll. `PortalTravel` refuses a
 crossing when the entity does not fit the far frame or `isAllowedToEnterPortal`/`canTeleport`
 would veto it, each with its own line, instead of letting `handlePortal` drop the trip silently.
+The same check also asks `ringMatches` to fail for a full block set *inside* the interior, and
+the near side is re-read for completeness per crossing, since a block set without neighbour
+updates would otherwise leave a holed portal usable from its own side.
 And removal never forces a chunk load: dead partners whose chunks are loaded clear on a following
 tick, the rest wait in a persisted `pending` list for `ServerChunkEvents.CHUNK_LOAD`; a stale
 record under a frame being lit again is purged first (`forgetStale`), since `/fill` and
@@ -336,6 +342,10 @@ small" refusal, the rider cooldown, and a dead partner clearing when its unloade
 - **Mirror images.** The signature is read in world order, so an asymmetric pattern must face the
   same way at both ends. Reading it from both ends and taking the lexicographically smaller would
   make mirrored frames match; decide once players have built a few.
+- **Arrival overlay.** A vanilla client decides the nether-portal warp overlay, trigger sound and
+  closed screens from its own block, and the arrival stands inside the far portal, so a player who
+  lingers there sees them until they step out, as after a vanilla nether crossing. Placing
+  arrivals one block past the far plane would trade this for obstruction handling; left as is.
 - **Smallest frame.** 1×1 is allowed (items and small mobs fit); raise the minimum if players find
   stray 1×1 portals confusing.
 
