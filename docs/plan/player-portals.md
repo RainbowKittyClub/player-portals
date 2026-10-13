@@ -410,7 +410,7 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 50 legs after the frame-block and framework reworks, all
+`scripts/loadtest/player-portals.js`, 51 legs after the frame-block and framework reworks, all
 PASS in about 2 min 30 s against a fresh dev server, among them one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
