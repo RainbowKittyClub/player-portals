@@ -58,7 +58,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     // little above the floor or the floor hides half of each and fights the rest.
     private static final double SPLASH_TICKS = 28.0;
     private static final double SPLASH_LIFT = 0.15;
-    private static final double SPLASH_SPACING = 0.11;
+    private static final double SPLASH_SPACING = 0.055;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;

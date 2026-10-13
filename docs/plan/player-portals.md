@@ -142,7 +142,7 @@ turned down, and living an obsidian tear's life (DripParticle.java:386, 541, 598
 the face 100 ticks as a trail that goes nowhere, falls as one that does to the first block with
 collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a
 splash plus the drip; a drop over nothing fades in the air. The splash is a bar of three of the
-drop's dots 0.11 apart along one horizontal axis, standing 28/(0.2..1.0) ticks as a tear's does,
+drop's dots 0.055 apart along one horizontal axis, standing 28/(0.2..1.0) ticks as a tear's does,
 0.15 above the floor: a camera-facing quad centred on the floor itself has half of its height
 under it and fights the rest from above, which is why the first splash was never seen. The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
