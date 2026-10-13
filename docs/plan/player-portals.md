@@ -141,11 +141,14 @@ moves to a target over a set time, kept as its plain dot after a droplet sprite 
 turned down, and living an obsidian tear's life (DripParticle.java:386, 541, 598): it hangs on
 the face 100 ticks as a trail that goes nowhere, falls as one that does to the first block with
 collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a
-the drip; a drop over nothing fades in the air. The splash is the drop's own dot standing where
-it came to rest, 28/(0.2..1.0) ticks as a tear's bar does. A flat text-display puddle aligned to
-the wall was built and set aside the same day on request, back to the plain dot; the drop hangs
-0.04 out from the face and rests 0.14 above the floor, being a quarter-block quad that faces the
-camera, which the floor would otherwise swallow half of. The warp a player hears on arriving is the mod's own
+the drip; a drop over nothing fades in the air. The drop hangs 0.08 out from the face and rests
+0.14 above the floor, being a quarter-block quad that faces the camera, which the floor would
+otherwise swallow half of. The puddle it leaves is an item display of `playerportals:puddle`, a
+generated item whose sprite is a teal bar sixteen pixels by four, so a flat plate a sixteenth
+thick at 4:1; scaled by a random length of 0.25 to 0.45 blocks on both axes it keeps the ratio,
+lies flat with a fixed billboard along the face the drop hung from, a hair above the floor and
+nudged back against the wall, shown to players with the pack, and goes when the block's next drop
+forms or the block does. A text-display puddle and a plain-dot splash came before it. The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
 and faded over its last 0.35 s to mono OGG by ffmpeg; the source stays in `media/sounds/`),
 through Polymer's sound-event overlay, so a client without the pack hears vanilla's portal
