@@ -1,9 +1,15 @@
 package club.rainbowkitty.playerportals.portal;
 
+import java.util.List;
+
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ColorParticleOption;
+import net.minecraft.core.particles.ParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.core.particles.SpellParticleOption;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -13,7 +19,9 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.NetherPortalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.portal.TeleportTransition;
+import net.minecraft.world.phys.Vec3;
 
+import club.rainbowkitty.kalic0re.common.portal.PortalEmitter;
 import club.rainbowkitty.kalic0re.common.portal.PortalExit;
 import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.kalic0re.common.portal.PortalKind;
@@ -30,6 +38,10 @@ import club.rainbowkitty.playerportals.frame.FrameBlocks;
 public final class PlayerPortalKind implements PortalKind {
     private static final BlockState PLAIN = Blocks.NETHER_PORTAL.defaultBlockState()
             .setValue(NetherPortalBlock.AXIS, Direction.Axis.X);
+    // The material's tint and two shades of it, opaque, as the effect particles take colours.
+    private static final int TEAL = 0xFF159C9C;
+    private static final int PALE_TEAL = 0xFF5FDEDE;
+    private static final int DEEP_TEAL = 0xFF0A4646;
 
     private @Nullable PortalMaterial material;
 
@@ -45,6 +57,20 @@ public final class PlayerPortalKind implements PortalKind {
             material = new PortalMaterial(new ItemStack(PortalMaterials.MATERIAL), PLAIN);
         }
         return material;
+    }
+
+    // A thin sheet of the effect family in turn over the whole plane, and a slow drift of pale
+    // sparks along the bottom edge.
+    @Override
+    public List<PortalEmitter> emitters() {
+        List<ParticleOptions> series = List.of(
+                SpellParticleOption.create(ParticleTypes.EFFECT, TEAL, 1.0F),
+                SpellParticleOption.create(ParticleTypes.INSTANT_EFFECT, PALE_TEAL, 1.0F),
+                ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT, DEEP_TEAL));
+        return List.of(PortalEmitter.sheet(series, 0.1, 2, 0.0F, 2),
+                new PortalEmitter(List.of(SpellParticleOption.create(ParticleTypes.EFFECT,
+                        PALE_TEAL, 1.0F)), new Vec3(0.0, -1.0, 0.0), new Vec3(0.5, 0.05, 0.05),
+                        true, 1, 0.02F, 10));
     }
 
     @Override

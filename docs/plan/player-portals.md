@@ -110,6 +110,13 @@ an unlit frame goes, and a lit frame no link reaches fades. Linking also answers
 framework refuses to light a frame that another portal lit a moment ago has cut across, and the
 catalyst says so instead of being consumed.
 
+**Crossing takes the centre, not the shoulder (user decision, 2026-10-12).** The framework now
+takes an entity once the centre of its box is in a portal block or crossed one during the tick,
+so brushing a portal's edge no longer sends anyone through. The tint is `#159c9c`, and lit
+portals give off the `effect` family in teal (`PlayerPortalKind.emitters`): a thin sheet over
+the plane every two ticks, cycling `effect`, `instant_effect` and `entity_effect`, and a pale
+spark along the bottom edge every ten.
+
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
 the interior cascade to air (NetherPortalBlock.java:94-108). `affectNeighborsAfterRemoval` is the
