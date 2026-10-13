@@ -117,6 +117,18 @@ portals give off the `effect` family in teal (`PlayerPortalKind.emitters`): a th
 the plane every two ticks, cycling `effect`, `instant_effect` and `entity_effect`, and a pale
 spark along the bottom edge every ten.
 
+**The frame block weeps and sounds like deepslate (user request, 2026-10-12).** A client without
+the pack sees crying obsidian and gets its purple drips from the client itself; one with the pack
+sees a note block, which neither drips nor sounds of stone. So the block schedules a tick for
+itself when placed (random ticks start blocks placed before), and each tick sends players with the
+pack within 32 blocks one `trail` particle in `#008888` falling from a random exposed face, then
+reschedules 5 to 15 s on, about crying obsidian's pace and nothing between drops. The break
+effect names deepslate (`getPolymerBreakEventBlockState`), which Polymer sends to the miner too;
+step, hit, place and fall go through Polymer's sound patcher, `SoundPatcher.convertIntoServerSound
+(SoundType.WOOD)`: the pack mutes the client's own wood sounds and the server plays the real
+block's, deepslate here, to the player as well. That conversion is server-wide: every wood-sounding
+block's sounds now reach a pack client from the server instead of its own prediction.
+
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
 the interior cascade to air (NetherPortalBlock.java:94-108). `affectNeighborsAfterRemoval` is the

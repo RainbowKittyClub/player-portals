@@ -30,7 +30,9 @@
     "minecraft": "${project.minecraft_version}",
     "java": ">=${project.java_version}",
     "polymer-core": "*",
+    "polymer-blocks": "*",
     "polymer-virtual-entity": "*",
-    "polymer-resource-pack": "*"
+    "polymer-resource-pack": "*",
+    "polymer-sound-patcher": "*"
   }
 }
