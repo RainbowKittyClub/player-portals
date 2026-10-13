@@ -254,8 +254,9 @@ the Enderscape Polymer patch (decompiled):
   only through an entry in the shader pack's `block.properties` for
   `minecraft:infested_deepslate:axis=x`; nothing the server sends reaches it. Without such a
   shader, or with shaders off, the resent vanilla light is what lights the block. The user's copy
-  was patched so (2026-10-13; original kept as `_backups/Distant Voxels v0.1.0.zip.orig-20261013`
-  in the workspace): `block.10110=infested_deepslate:axis=x`, the other two axes left on 10108,
+  was patched so (2026-10-13; Distant Voxels is built from `rkc/forks/rethinking-voxels`, where the
+  patch is commit `cfe3e02` on `main`; the original zip is kept as
+  `_backups/Distant Voxels v0.1.0.zip.orig-20261013` in the workspace): `block.10110=infested_deepslate:axis=x`, the other two axes left on 10108,
   so the surface is deepslate's (`terrainMaterials.glsl` sends 10108 to 10111 there; only
   `mat % 4 == 1` means anything, non-solid); `voxelization.glsl` gives 10110 light 29, the soul
   fire colour; `shadowChecks.glsl` lists it as emissive, with the soul torch's colour
