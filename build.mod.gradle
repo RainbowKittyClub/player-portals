@@ -1,7 +1,0 @@
-// player-portals-specific build logic. Applied last by the shared gradle/build.gradle.
-
-dependencies {
-	// polymer-sound-patcher rides inside polymer-bundled at runtime but is not on the compile
-	// classpath Loom builds from it, and PlayerPortals calls its SoundPatcher directly.
-	compileOnly("eu.pb4:polymer-sound-patcher:${project.polymer_version}") { transitive = false }
-}

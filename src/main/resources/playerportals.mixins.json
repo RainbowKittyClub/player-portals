@@ -7,7 +7,7 @@
     "CrafterBlockMixin",
     "CraftingMenuMixin",
     "HandClicksMixin",
-    "SoundRemapperMixin"
+    "PolymerBlockResourceUtilsAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

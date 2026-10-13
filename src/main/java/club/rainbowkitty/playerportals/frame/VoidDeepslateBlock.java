@@ -1,9 +1,12 @@
 package club.rainbowkitty.playerportals.frame;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import eu.pb4.polymer.blocks.api.PolymerTexturedBlock;
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import eu.pb4.polymer.virtualentity.api.ElementHolder;
-import eu.pb4.polymer.virtualentity.api.attachment.ChunkAttachment;
+import eu.pb4.polymer.virtualentity.api.attachment.BlockBoundAttachment;
 import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -13,8 +16,6 @@ import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.TrailParticleOption;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.network.chat.Component;
@@ -29,6 +30,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Brightness;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -36,76 +38,79 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.world.phys.shapes.CollisionContext;
 
 /**
- * The block a frame is built from: deepslate with an ender pearl in it. A client with the
- * resource pack sees its own texture on a pool block; any other sees crying obsidian, which has
- * the same light, so neither client's own light recalculation disagrees with the server's.
+ * The block a frame is built from: deepslate with an ender pearl in it, glowing like crying
+ * obsidian. A client with the resource pack sees its own texture on a pool state that sounds as
+ * deepslate (see {@link FrameBlocks}) but gives no light, so Polymer resends it the server's light
+ * whenever the light around the block changes. Any other client sees crying obsidian, which has
+ * the same light.
  *
  * <p>It weeps as crying obsidian does. A client without the pack gets that from crying obsidian
- * itself; one with the pack is sent a teal drop now and then from an exposed face, by a block
+ * itself; one with the pack is shown a teal tear now and then from an exposed face, by a block
  * tick each block keeps scheduling for itself (random ticks start it on blocks placed before this
- * was so), which costs nothing between drops. No vanilla drip particle takes a colour, so the
- * drop is vanilla's {@code trail}, which does, living an obsidian tear's life: it hangs on the
- * face five seconds, falls to whatever floor is below at a tear's pace, and lands with a soft
- * drip that crying obsidian's never make, leaving the puddle a tear leaves. That is vanilla's own
- * landing sprite, which no particle could show in this colour, as the one glyph of a text
- * display: a sprite in text takes the text's colour, and the display turns it to the camera as
- * the tear's own is turned, just above the floor where the drop fell, until the block's next drop
- * forms.
+ * was so), which costs nothing between drops. No vanilla drip particle takes a colour, but a
+ * sprite in text takes the text's, so each tear is one text display showing vanilla's three drip
+ * sprites in turn, turned to the camera as the tear's particles are. It hangs on the face five
+ * seconds, falls at a tear's pace to whatever floor is below, a glide the client animates on its
+ * own, and lies there as the puddle a tear leaves, with a soft drip that crying obsidian's never
+ * make, until the block's next try at a drop.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     private static final int LIGHT = 10;
     private static final BlockState FALLBACK = Blocks.CRYING_OBSIDIAN.defaultBlockState();
-    // The tear's colour is #008888, rendered at 125 of 255 by drop and puddle alike: the trail's
-    // sprite is one white pixel, so the drop shows its tint as given, where the landing sprite's
-    // bar is grey 213 (with one white highlight) and shows 213/255 of its tint. Each is tinted
-    // for 125, halfway between where #008888 put the two (136 and 114).
-    private static final int TEAR = 0x007D7D;
-    private static final int PUDDLE_TINT = 0x009696;
+    // The tear's three sprites are vanilla's own: a dot hanging, the dot falling and the bar it
+    // leaves, each grey 213 with one white highlight. This tint puts the grey at 125 of 255.
+    private static final int TEAR = 0x009696;
+    private static final Component HANG = tear("drip_hang");
+    private static final Component FALL = tear("drip_fall");
+    private static final Component PUDDLE = tear("drip_land");
     // Ticks between a block's tries at a drop: 2 to 6 seconds, a third of which find a bare face.
     private static final int DRIP_DELAY_MIN = 40;
     private static final int DRIP_DELAY_SPAN = 80;
     // An obsidian tear's: it hangs 100 ticks, then falls under a gravity of 0.01 a tick.
     private static final int HANG_TICKS = 100;
     private static final double FALL_GRAVITY = 0.01;
+    // How far below where it hangs a drop looks for a floor.
     private static final int MAX_FALL = 16;
-    // The drop is a quarter-block quad facing the camera: it hangs just off the face, and keeps
-    // this far above the floor it lands on, or the floor swallows half of it.
+    // The dot is at most a tenth of a block across, and hangs this far off the face, so however
+    // it turns to the camera it never cuts into the block.
     private static final double HANG_OUT = 0.08;
-    private static final double DROP_CLEARANCE = 0.14;
-    // The puddle: the tear's landing sprite, a bar four pixels long and one wide in its eight by
-    // eight, tinted. A text display draws a one-glyph line with the glyph's box from three pixels
-    // left of its position to five right, and from two above to ten, a pixel being 0.025 block;
-    // the bar is the box's fourth row, so its centre lies a pixel right and six and a half up.
-    private static final Component PUDDLE = Component.object(new AtlasSprite(AtlasIds.PARTICLES,
-            Identifier.withDefaultNamespace("drip_land"))).withColor(PUDDLE_TINT);
+    // A text display draws a one-glyph line with the glyph's box from three pixels left of its
+    // position to five right, and from two above to ten, a pixel being 0.025 block. Each mark
+    // lies a pixel right of the position and this far up: the hanging dot fills the sprite's top
+    // two rows, the falling one the next two, the puddle's bar the fourth.
     private static final float TEXT_PIXEL = 0.025F;
-    private static final Vector3f PUDDLE_BAR_CENTRE = new Vector3f(1.0F, 6.5F, 0.0F)
+    private static final Vector3f HANG_CENTRE = new Vector3f(1.0F, 9.0F, 0.0F).mul(TEXT_PIXEL);
+    private static final Vector3f FALL_CENTRE = new Vector3f(1.0F, 8.0F, 0.0F).mul(TEXT_PIXEL);
+    private static final Vector3f PUDDLE_CENTRE = new Vector3f(1.0F, 6.5F, 0.0F)
             .mul(TEXT_PIXEL);
-    // The tear's own quad is 0.2 to 0.4 block, which is the sprite at one to two text pixels per
-    // pixel: a bar 0.1 to 0.2 long. The bar is centred on the entity, so however the billboard
-    // turns no edge of it reaches further below the entity than half the bar's thickness; the
-    // entity sits that and this much above the floor.
-    private static final float PUDDLE_SCALE_MIN = 1.0F;
-    private static final float PUDDLE_SCALE_SPAN = 1.0F;
-    private static final double PUDDLE_LIFT = 0.01;
+    private static final float DOT_HEIGHT = 2.0F * TEXT_PIXEL;
+    private static final float BAR_HEIGHT = TEXT_PIXEL;
+    // The tear's own quad is 0.2 to 0.4 block, which is its sprite at one to two text pixels per
+    // pixel: a dot 0.05 to 0.1 across, a bar 0.1 to 0.2 long. Each mark is centred on the entity,
+    // so however the billboard turns no edge of it reaches further below the entity than half
+    // its height; on the floor the entity sits that and this much above it.
+    private static final float SCALE_MIN = 1.0F;
+    private static final float SCALE_SPAN = 1.0F;
+    private static final double FLOOR_LIFT = 0.01;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
-    // Each block's drop while it has one. The next tick lets a hanging drop fall, and lands a
-    // falling one. A restart empties this, which costs one drop its ending.
-    private static final Long2ObjectMap<Drop> DROPS = new Long2ObjectOpenHashMap<>();
-    // Each block's puddle while it has one, gone when its next drop forms or the block does.
-    private static final Long2ObjectMap<ElementHolder> PUDDLES = new Long2ObjectOpenHashMap<>();
+    // Each level's drops by block, from the tick one forms until the block's next try at a drop
+    // or the block goes. Forgotten when the server stops; the displays go with their chunks.
+    private static final Map<ResourceKey<Level>, Long2ObjectMap<Drop>> DROPS = new HashMap<>();
 
     private final BlockState textured;
 
     /**
-     * @param textured the pool state the pack retextures, or null when the pool is exhausted, in
-     *        which case every client sees the fallback
+     * @param textured the pool state the pack draws this block on, or null when the pool is
+     *        spent, in which case every client sees the fallback
      */
     public VoidDeepslateBlock(Properties properties, @Nullable BlockState textured) {
         super(properties);
@@ -119,24 +124,36 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 .lightLevel(state -> LIGHT).randomTicks().setId(key);
     }
 
+    /** Forgets every drop, for when the server stops. */
+    public static void forgetDrops() {
+        DROPS.clear();
+    }
+
     @Override
     public BlockState getPolymerBlockState(BlockState state, @Nullable PacketContext context) {
         return context != null && PolymerResourcePackUtils.hasMainPack(context)
                 ? textured : FALLBACK;
     }
 
-    // Every client sees deepslate shatter: the pool block is a note block and would sound of wood.
+    // Polymer resends the server's light to clients near a block whose client state gives a
+    // different light. It asks for the state of a client it knows nothing about, which here is
+    // crying obsidian, as bright as this, so it has to be told; the pack's state gives none.
     @Override
-    public BlockState getPolymerBreakEventBlockState(BlockState state, PacketContext context) {
-        return Blocks.DEEPSLATE.defaultBlockState();
+    public boolean forceLightUpdates(BlockState state) {
+        return true;
     }
 
-    // A block gone mid-drop keeps no drop for the next block here to finish, and no puddle.
+    // A block gone mid-drop takes its drop or puddle with it, and leaves none for the next block
+    // here to finish. A removal that skips this, such as a strict /setblock, still takes the
+    // display, which is bound to the block, and the drop is forgotten at that spot's next tick.
     @Override
     protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos,
             boolean movedByPiston) {
-        DROPS.remove(pos.asLong());
-        dryPuddle(pos.asLong());
+        Long2ObjectMap<Drop> drops = DROPS.get(level.dimension());
+        Drop drop = drops == null ? null : drops.remove(pos.asLong());
+        if (drop != null) {
+            drop.dry();
+        }
     }
 
     @Override
@@ -147,42 +164,51 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // Starts the drips of a block placed before they existed; a block already ticking is
-    // rescheduled harmlessly early.
+    // Starts the drips of a block placed before they existed; a block already ticking keeps the
+    // tick it has.
     @Override
     protected void randomTick(BlockState state, ServerLevel level, BlockPos pos,
             RandomSource random) {
         scheduleDrip(level, pos, random);
     }
 
-    // Three ticks per drop: one hangs it on a face, the next lets it fall, the last lands it
-    // and schedules the next drop. A drop with no floor within reach fades in the air instead.
+    // Three ticks per drop: one hangs it on a face, the next lets it fall, the last lands it and
+    // schedules the block's next try, whose tick dries the puddle. A drop with no floor within
+    // reach, or falling into a liquid, is gone when it would have landed.
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        Long2ObjectMap<Drop> drops = DROPS.computeIfAbsent(level.dimension(),
+                added -> new Long2ObjectOpenHashMap<>());
         long key = pos.asLong();
-        Drop drop = DROPS.remove(key);
-        if (drop == null) {
-            dryPuddle(key);
-            drop = hang(level, pos, random);
-            if (drop == null) {
+        Drop drop = drops.get(key);
+        // One whose display went with its chunk, or with a block here before, is forgotten.
+        if (drop != null && drop.gone()) {
+            drops.remove(key);
+            drop = null;
+        }
+        if (drop != null && drop.phase() == Phase.HANGING) {
+            level.scheduleTick(pos, this, drop.fall());
+        } else if (drop != null && drop.phase() == Phase.FALLING) {
+            if (drop.lands()) {
+                drop.settle();
+                drip(level, drop.landing(), random);
+            } else {
+                drops.remove(key);
+                drop.dry();
+            }
+            scheduleDrip(level, pos, random);
+        } else {
+            if (drop != null) {
+                drop.dry();
+            }
+            Drop formed = hang(level, pos, state, random);
+            if (formed == null) {
+                drops.remove(key);
                 scheduleDrip(level, pos, random);
                 return;
             }
-            DROPS.put(key, drop);
+            drops.put(key, formed);
             level.scheduleTick(pos, this, HANG_TICKS);
-        } else if (!drop.falling()) {
-            send(level, drop.from(),
-                    new TrailParticleOption(drop.rest(), TEAR, drop.fallTicks()));
-            if (drop.lands()) {
-                DROPS.put(key, drop.fall());
-                level.scheduleTick(pos, this, drop.fallTicks());
-            } else {
-                scheduleDrip(level, pos, random);
-            }
-        } else {
-            land(level, drop, random);
-            PUDDLES.put(key, puddle(level, drop, random));
-            scheduleDrip(level, pos, random);
         }
     }
 
@@ -194,9 +220,13 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // A drop forms on a random exposed face other than the top, as crying obsidian picks them:
-    // a trail that stays put for the hang. Null when the face drawn was covered or the top.
-    private static @Nullable Drop hang(ServerLevel level, BlockPos pos, RandomSource random) {
+    // A drop forms on a random exposed face other than the top, as crying obsidian picks them, a
+    // tear's random size, and finds where it will come down: the first thing with a visual shape
+    // below, within reach, a fence's post rather than its taller collision, or a liquid's surface,
+    // in which it is lost. Null when the face drawn was covered or the top, or the spot drawn on
+    // it is not clear of collision.
+    private static @Nullable Drop hang(ServerLevel level, BlockPos pos, BlockState state,
+            RandomSource random) {
         Direction face = Direction.getRandom(random);
         if (face == Direction.UP) {
             return null;
@@ -213,117 +243,143 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                         : 0.5 + face.getStepY() * out),
                 pos.getZ() + (face.getStepZ() == 0 ? random.nextDouble()
                         : 0.5 + face.getStepZ() * out));
-        send(level, from, new TrailParticleOption(from, TEAR, HANG_TICKS));
-        return Drop.hanging(from, floorBelow(level, from));
+        float scale = SCALE_MIN + random.nextFloat() * SCALE_SPAN;
+        double size = DOT_HEIGHT * scale;
+        if (!level.noBlockCollision(null, AABB.ofSize(from, size, size, size))) {
+            return null;
+        }
+        Vec3 reach = from.subtract(0.0, MAX_FALL, 0.0);
+        BlockHitResult floor = level.clip(new ClipContext(from, reach, ClipContext.Block.VISUAL,
+                ClipContext.Fluid.ANY, CollisionContext.empty()));
+        if (floor.getType() != HitResult.Type.BLOCK) {
+            return new Drop(level, pos, state, from, reach, false, scale);
+        }
+        return new Drop(level, pos, state, from, new Vec3(from.x, floor.getLocation().y, from.z),
+                level.getFluidState(floor.getBlockPos()).isEmpty(), scale);
     }
 
-    // The top of the first block with collision under `from`, within reach, else null.
-    private static @Nullable Vec3 floorBelow(ServerLevel level, Vec3 from) {
-        BlockPos.MutableBlockPos below = BlockPos.containing(from).mutable();
-        for (int i = 0; i < MAX_FALL; i++) {
-            below.move(Direction.DOWN);
-            VoxelShape shape = level.getBlockState(below).getCollisionShape(level, below);
-            if (!shape.isEmpty()) {
-                return new Vec3(from.x, below.getY() + shape.max(Direction.Axis.Y), from.z);
-            }
-        }
-        return null;
-    }
-
-    private static void send(ServerLevel level, Vec3 at, ParticleOptions particle) {
-        for (ServerPlayer player : level.players()) {
-            if (player.distanceToSqr(at) <= DRIP_RANGE_SQUARED
-                    && PolymerResourcePackUtils.hasMainPack(player.connection)) {
-                level.sendParticles(player, particle, false, false, at.x, at.y, at.z, 1, 0.0,
-                        0.0, 0.0, 0.0);
-            }
-        }
-    }
-
-    /**
-     * One block's drop, from where it hangs to where it lands.
-     *
-     * @param from where it hangs
-     * @param landing the floor it falls to, or the air {@link #MAX_FALL} below when there is none
-     * @param lands whether there was a floor
-     * @param falling whether it has let go
-     */
-    private record Drop(Vec3 from, Vec3 landing, boolean lands, boolean falling) {
-        // A drop that has just formed at `from`, over `floor` if any.
-        static Drop hanging(Vec3 from, @Nullable Vec3 floor) {
-            return new Drop(from, floor != null ? floor : from.subtract(0.0, MAX_FALL, 0.0),
-                    floor != null, false);
-        }
-
-        // The same drop, let go.
-        Drop fall() {
-            return new Drop(from, landing, lands, true);
-        }
-
-        // Where the falling dot comes to rest: its clearance above the floor.
-        Vec3 rest() {
-            return landing.add(0.0, DROP_CLEARANCE, 0.0);
-        }
-
-        // Where the centre of a puddle whose bar is `thickness` thick sits: over the floor where
-        // the drop fell, high enough that the bar's lower edge clears it.
-        Vec3 puddleAt(double thickness) {
-            return landing.add(0.0, PUDDLE_LIFT + thickness / 2.0, 0.0);
-        }
-
-        // How long the fall takes under a tear's gravity, at least one tick.
-        int fallTicks() {
-            double height = from.y - rest().y;
-            return Math.max(1, (int) Math.round(Math.sqrt(2.0 * height / FALL_GRAVITY)));
-        }
-    }
-
-    // The puddle a drop leaves: the landing sprite turned to the camera as the tear's own is,
-    // just above the floor where the drop fell, a tear's random size, shown to players with the
-    // pack.
-    private static ElementHolder puddle(ServerLevel level, Drop drop, RandomSource random) {
-        float scale = PUDDLE_SCALE_MIN + random.nextFloat() * PUDDLE_SCALE_SPAN;
-        TextDisplayElement sheet = new TextDisplayElement(PUDDLE);
-        sheet.setBackground(0);
-        sheet.setShadow(false);
-        sheet.setBillboardMode(Display.BillboardConstraints.CENTER);
-        // The drop's trail particle is always full bright; the puddle matches it.
-        sheet.setBrightness(Brightness.FULL_BRIGHT);
-        sheet.setScale(new Vector3f(scale));
-        // Brings the bar's centre, drawn off the entity's position, onto it. The translation is
-        // applied after the billboard's turn, so it holds whichever way the sprite faces.
-        sheet.setTranslation(new Vector3f(PUDDLE_BAR_CENTRE).mul(-scale));
-        sheet.setVisibilityPredicate(
-                player -> PolymerResourcePackUtils.hasMainPack(player.connection));
-        ElementHolder holder = new ElementHolder();
-        holder.addElement(sheet);
-        ChunkAttachment.of(holder, level, drop.puddleAt(TEXT_PIXEL * scale));
-        return holder;
-    }
-
-    private static void dryPuddle(long key) {
-        ElementHolder puddle = PUDDLES.remove(key);
-        if (puddle != null) {
-            puddle.destroy();
-        }
-    }
-
-    // The drop lands, with a soft drip.
-    private static void land(ServerLevel level, Drop drop, RandomSource random) {
-        Vec3 at = drop.rest();
-        double x = at.x;
-        double y = at.y;
-        double z = at.z;
+    // The soft drip of a drop landing at `at`, for players with the pack within earshot.
+    private static void drip(ServerLevel level, Vec3 at, RandomSource random) {
         ClientboundSoundPacket drip = new ClientboundSoundPacket(
                 BuiltInRegistries.SOUND_EVENT.wrapAsHolder(
                         SoundEvents.POINTED_DRIPSTONE_DRIP_WATER),
-                SoundSource.BLOCKS, x, y, z, DRIP_VOLUME, DRIP_PITCH + random.nextFloat() * 0.2F,
-                random.nextLong());
+                SoundSource.BLOCKS, at.x, at.y, at.z, DRIP_VOLUME,
+                DRIP_PITCH + random.nextFloat() * 0.2F, random.nextLong());
         for (ServerPlayer player : level.players()) {
-            if (player.distanceToSqr(x, y, z) <= DRIP_RANGE_SQUARED
+            if (player.distanceToSqr(at) <= DRIP_RANGE_SQUARED
                     && PolymerResourcePackUtils.hasMainPack(player.connection)) {
                 player.connection.send(drip);
             }
+        }
+    }
+
+    private static Component tear(String sprite) {
+        return Component.object(new AtlasSprite(AtlasIds.PARTICLES,
+                Identifier.withDefaultNamespace(sprite))).withColor(TEAR);
+    }
+
+    /** Where a drop is in its life. */
+    private enum Phase {
+        HANGING,
+        FALLING,
+        LYING
+    }
+
+    /**
+     * One block's drop: a text display that hangs at its face, falls to the floor below and lies
+     * there as a puddle, changing sprite at each step, for players with the pack. Its holder
+     * never ticks; each step sends its own changes, and the client glides the fall. The holder is
+     * bound to the block, so Polymer takes the display away whenever the block there changes,
+     * however it changes.
+     */
+    private static final class Drop {
+        private final ElementHolder holder = new ElementHolder();
+        private final TextDisplayElement sprite = new TextDisplayElement(HANG);
+        private final Vec3 from;
+        private final Vec3 landing;
+        private final boolean lands;
+        private final float scale;
+        private Phase phase = Phase.HANGING;
+
+        // Forms at `from`, bound to the block at `block`, to come down at `landing` and leave a
+        // puddle there if it `lands`.
+        private Drop(ServerLevel level, BlockPos block, BlockState state, Vec3 from, Vec3 landing,
+                boolean lands, float scale) {
+            this.from = from;
+            this.landing = landing;
+            this.lands = lands;
+            this.scale = scale;
+            sprite.setBackground(0);
+            sprite.setShadow(false);
+            sprite.setBillboardMode(Display.BillboardConstraints.CENTER);
+            // A tear's particles are all full bright, as is this.
+            sprite.setBrightness(Brightness.FULL_BRIGHT);
+            sprite.setScale(new Vector3f(scale));
+            sprite.setVisibilityPredicate(
+                    player -> PolymerResourcePackUtils.hasMainPack(player.connection));
+            centre(HANG_CENTRE);
+            holder.addElement(sprite);
+            // Polymer marks this constructor internal: its public factory serves only blocks that
+            // keep a holder of their own.
+            new BlockBoundAttachment(holder, level.getChunkAt(block), state, block.immutable(),
+                    from, false);
+        }
+
+        private Phase phase() {
+            return phase;
+        }
+
+        private boolean lands() {
+            return lands;
+        }
+
+        private Vec3 landing() {
+            return landing;
+        }
+
+        // Whether its display is gone, with its chunk or with the block it was bound to.
+        private boolean gone() {
+            return holder.getAttachment() == null;
+        }
+
+        // Lets go: the client glides the falling dot to the floor over a tear's fall from this
+        // height, and the ticks that takes are returned.
+        private int fall() {
+            double height = Math.max(0.0, from.y - over(DOT_HEIGHT).y);
+            int ticks = Math.max(1, (int) Math.round(Math.sqrt(2.0 * height / FALL_GRAVITY)));
+            sprite.setText(FALL);
+            centre(FALL_CENTRE);
+            sprite.setTeleportDuration(ticks);
+            sprite.setOffset(over(DOT_HEIGHT).subtract(from));
+            holder.tick();
+            phase = Phase.FALLING;
+            return ticks;
+        }
+
+        // Lands: the dot becomes the puddle, snapped down to sit as close over the floor.
+        private void settle() {
+            sprite.setText(PUDDLE);
+            centre(PUDDLE_CENTRE);
+            sprite.setTeleportDuration(0);
+            sprite.setOffset(over(BAR_HEIGHT).subtract(from));
+            holder.tick();
+            phase = Phase.LYING;
+        }
+
+        private void dry() {
+            holder.destroy();
+        }
+
+        // Brings the mark's centre, drawn off the entity's position, onto it. The translation is
+        // applied after the billboard's turn, so it holds whichever way the sprite faces.
+        private void centre(Vector3f mark) {
+            sprite.setTranslation(new Vector3f(mark).mul(-scale));
+        }
+
+        // Where a mark `height` tall at scale one sits centred on the landing, its lower edge
+        // FLOOR_LIFT clear of the floor.
+        private Vec3 over(float height) {
+            return landing.add(0.0, FLOOR_LIFT + height * scale / 2.0, 0.0);
         }
     }
 }

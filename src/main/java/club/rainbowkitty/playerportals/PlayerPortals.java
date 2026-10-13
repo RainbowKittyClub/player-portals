@@ -1,11 +1,9 @@
 package club.rainbowkitty.playerportals;
 
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
-import eu.pb4.polymer.soundpatcher.api.SoundPatcher;
 import net.fabricmc.api.ModInitializer;
 
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.level.block.SoundType;
 
 import club.rainbowkitty.kalic0re.common.portal.PortalBlock;
 import club.rainbowkitty.kalic0re.common.portal.Portals;
@@ -59,9 +57,5 @@ public final class PlayerPortals implements ModInitializer {
         // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea, the
         // frame block as crying obsidian and the portal as a nether portal.
         PolymerResourcePackUtils.addModAssets(MOD_ID);
-        // The frame block's pool stand-in is a note block, whose step, hit, place and fall sounds
-        // a client with the pack would make itself, in wood. Served from the server instead, those
-        // sounds come from the real block: deepslate. Every wood-sounding block pays the same way.
-        SoundPatcher.convertIntoServerSound(SoundType.WOOD);
     }
 }
