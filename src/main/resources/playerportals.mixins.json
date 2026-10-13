@@ -6,7 +6,8 @@
   "mixins": [
     "CrafterBlockMixin",
     "CraftingMenuMixin",
-    "HandClicksMixin"
+    "HandClicksMixin",
+    "SoundRemapperMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -127,7 +127,14 @@ effect names deepslate (`getPolymerBreakEventBlockState`), which Polymer sends t
 step, hit, place and fall go through Polymer's sound patcher, `SoundPatcher.convertIntoServerSound
 (SoundType.WOOD)`: the pack mutes the client's own wood sounds and the server plays the real
 block's, deepslate here, to the player as well. That conversion is server-wide: every wood-sounding
-block's sounds now reach a pack client from the server instead of its own prediction.
+block's sounds now reach a pack client from the server instead of its own prediction. The patcher
+renames the moved sound ids in every outgoing packet whether or not the receiver holds the pack,
+which would silence every wood sound a client without it hears from others, so
+`mixin/SoundRemapperMixin` keeps the rename to clients with the pack. Later the same day, on
+seeing few drops: a block tries every 2 to 6 s, each drop is a bead of dust clinging to the face
+plus the falling trail, and the block's next tick, 25 ticks on, lands it with a soft dripstone
+drip for the same players; a static set of blocks with a drop in the air tells the two ticks
+apart, and loses nothing worse than one landing over a restart.
 
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
