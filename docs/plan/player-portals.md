@@ -145,7 +145,9 @@ the drip; a drop over nothing fades in the air. The puddle is not a particle: ev
 faces the camera, so a row of dots on the floor read as a bar only from some angles. It is a
 text display with no text, whose background is a teal rectangle (`0xB0008888`, full bright),
 scaled to 0.35 by 0.12 blocks, laid flat with a fixed billboard and turned along the face the
-drop hung from, a hair above the floor so the floor does not fight it; a Polymer holder attached
+drop hung from, a hair above the floor so the floor does not fight it, and nudged back against
+the wall. The drop itself, a quarter-block quad facing the camera, keeps 0.14 block clear of the
+face it hangs on and of the floor it rests on, or either swallows half of it; a Polymer holder attached
 to the chunk, shown to players with the pack, destroyed when the block's next drop forms or the
 block is removed. A text display's background with no text is one pixel wide and ten tall at
 0.025 block a pixel, standing on the entity's position and half a pixel off centre, which the

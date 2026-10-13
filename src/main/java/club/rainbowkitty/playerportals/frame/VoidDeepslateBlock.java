@@ -71,7 +71,11 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final float PUDDLE_PIXEL = 0.025F;
     private static final int PUDDLE_PIXELS_TALL = 10;
     private static final int PUDDLE_COLOUR = 0xB0008888;
-    private static final double SPLASH_LIFT = 0.01;
+    private static final double PUDDLE_LIFT = 0.01;
+    private static final double PUDDLE_GAP = 0.02;
+    // The drop is a quarter-block quad facing the camera, so its centre keeps this far from the
+    // face it hangs on and from the floor it lands on, or the block swallows half of it.
+    private static final double DROP_CLEARANCE = 0.14;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
@@ -151,7 +155,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             level.scheduleTick(pos, this, HANG_TICKS);
         } else if (!drop.falling()) {
             send(level, drop.from(),
-                    new TrailParticleOption(drop.landing(), TEAR, drop.fallTicks()));
+                    new TrailParticleOption(drop.rest(), TEAR, drop.fallTicks()));
             if (drop.lands()) {
                 DROPS.put(key, drop.fall());
                 level.scheduleTick(pos, this, drop.fallTicks());
@@ -184,27 +188,26 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         if (level.getBlockState(beside).isFaceSturdy(level, beside, face.getOpposite())) {
             return null;
         }
+        double out = 0.5 + DROP_CLEARANCE;
         Vec3 from = new Vec3(
                 pos.getX() + (face.getStepX() == 0 ? random.nextDouble()
-                        : 0.5 + face.getStepX() * 0.55),
+                        : 0.5 + face.getStepX() * out),
                 pos.getY() + (face.getStepY() == 0 ? random.nextDouble()
-                        : 0.5 + face.getStepY() * 0.55),
+                        : 0.5 + face.getStepY() * out),
                 pos.getZ() + (face.getStepZ() == 0 ? random.nextDouble()
-                        : 0.5 + face.getStepZ() * 0.55));
+                        : 0.5 + face.getStepZ() * out));
         send(level, from, new TrailParticleOption(from, TEAR, HANG_TICKS));
         return Drop.hanging(from, floorBelow(level, from), face);
     }
 
-    // Just above the top of the first block with collision under `from`, within reach, else
-    // null.
+    // The top of the first block with collision under `from`, within reach, else null.
     private static @Nullable Vec3 floorBelow(ServerLevel level, Vec3 from) {
         BlockPos.MutableBlockPos below = BlockPos.containing(from).mutable();
         for (int i = 0; i < MAX_FALL; i++) {
             below.move(Direction.DOWN);
             VoxelShape shape = level.getBlockState(below).getCollisionShape(level, below);
             if (!shape.isEmpty()) {
-                return new Vec3(from.x, below.getY() + shape.max(Direction.Axis.Y) + SPLASH_LIFT,
-                        from.z);
+                return new Vec3(from.x, below.getY() + shape.max(Direction.Axis.Y), from.z);
             }
         }
         return null;
@@ -241,9 +244,25 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             return new Drop(from, landing, lands, true, face);
         }
 
+        // Where the falling dot comes to rest: its clearance above the floor.
+        Vec3 rest() {
+            return landing.add(0.0, DROP_CLEARANCE, 0.0);
+        }
+
+        // Where the puddle lies: on the floor, and against the face the drop hung on, which the
+        // drop itself kept its clearance from.
+        Vec3 puddleAt() {
+            Vec3 at = landing.add(0.0, PUDDLE_LIFT, 0.0);
+            if (face.getAxis().isHorizontal()) {
+                double back = DROP_CLEARANCE - (PUDDLE_WIDTH / 2.0 + PUDDLE_GAP);
+                at = at.subtract(face.getStepX() * back, 0.0, face.getStepZ() * back);
+            }
+            return at;
+        }
+
         // How long the fall takes under a tear's gravity, at least one tick.
         int fallTicks() {
-            double height = from.y - landing.y;
+            double height = from.y - rest().y;
             return Math.max(1, (int) Math.round(Math.sqrt(2.0 * height / FALL_GRAVITY)));
         }
     }
@@ -272,7 +291,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 player -> PolymerResourcePackUtils.hasMainPack(player.connection));
         ElementHolder holder = new ElementHolder();
         holder.addElement(sheet);
-        ChunkAttachment.of(holder, level, drop.landing());
+        ChunkAttachment.of(holder, level, drop.puddleAt());
         return holder;
     }
 
