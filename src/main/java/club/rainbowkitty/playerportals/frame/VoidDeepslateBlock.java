@@ -9,7 +9,6 @@ import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.TrailParticleOption;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -40,8 +39,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * tick each block keeps scheduling for itself (random ticks start it on blocks placed before this
  * was so), which costs nothing between drops. No vanilla drip particle takes a colour, so the
  * drop is vanilla's {@code trail}, which does, living an obsidian tear's life: it hangs on the
- * face five seconds, falls to whatever floor is below at a tear's pace, and lands as a small
- * splash with a soft drip that crying obsidian's never make.
+ * face five seconds, falls to whatever floor is below at a tear's pace, and lands as a splash
+ * that lingers as long as a tear's, with a soft drip that crying obsidian's never make.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     private static final int LIGHT = 10;
@@ -54,7 +53,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final int HANG_TICKS = 100;
     private static final double FALL_GRAVITY = 0.01;
     private static final int MAX_FALL = 16;
-    private static final float SPLASH_SIZE = 1.0F;
+    // A tear's landing splash lives 28 / (0.2..1.0) ticks, 1.4 to 7 s.
+    private static final double SPLASH_TICKS = 28.0;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
@@ -217,9 +217,11 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // The drop lands: a small splash that fades where it fell, and a soft drip.
+    // The drop lands: a splash that stays where it fell as long as a tear's would, and a soft
+    // drip. The splash is the same dot as the drop; a particle type has one sprite.
     private static void land(ServerLevel level, Vec3 at, RandomSource random) {
-        send(level, at, new DustParticleOptions(TEAR, SPLASH_SIZE));
+        int splash = (int) (SPLASH_TICKS / (random.nextFloat() * 0.8F + 0.2F));
+        send(level, at, new TrailParticleOption(at, TEAR, splash));
         double x = at.x;
         double y = at.y;
         double z = at.z;

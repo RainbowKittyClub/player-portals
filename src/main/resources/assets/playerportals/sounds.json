@@ -1,0 +1,10 @@
+{
+  "portal_jump": {
+    "sounds": [
+      {
+        "name": "playerportals:portal_jump",
+        "stream": false
+      }
+    ]
+  }
+}

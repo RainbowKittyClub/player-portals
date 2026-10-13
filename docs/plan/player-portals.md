@@ -140,8 +140,13 @@ so none reaches teal. The drop is therefore vanilla's `trail`, the one colourabl
 moves to a target over a set time, kept as its plain dot after a droplet sprite was tried and
 turned down, and living an obsidian tear's life (DripParticle.java:386, 541, 598): it hangs on
 the face 100 ticks as a trail that goes nowhere, falls as one that does to the first block with
-collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a small
-`dust` splash plus the drip; a drop over nothing fades in the air. A static map of each block's
+collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a
+splash, the same dot standing 28/(0.2..1.0) ticks as a tear's bar-shaped one does, plus the
+drip; a drop over nothing fades in the air. The warp a player hears on arriving is the mod's own
+`portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
+and faded over its last 0.35 s to mono OGG by ffmpeg; the source stays in `media/sounds/`),
+through Polymer's sound-event overlay, so a client without the pack hears vanilla's portal
+travel; the framework's `travelSound` hook replaced its fixed vanilla step for this. A static map of each block's
 drop tells the three ticks apart and loses nothing worse than one drop's ending over a restart.
 
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a

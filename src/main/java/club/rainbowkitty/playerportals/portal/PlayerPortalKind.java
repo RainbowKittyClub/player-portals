@@ -10,9 +10,12 @@ import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SpellParticleOption;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
@@ -42,6 +45,7 @@ public final class PlayerPortalKind implements PortalKind {
     private static final int TEAL = 0xFF159C9C;
     private static final int PALE_TEAL = 0xFF5FDEDE;
     private static final int DEEP_TEAL = 0xFF0A4646;
+    private static final float WARP_VOLUME = 0.6F;
 
     private @Nullable PortalMaterial material;
 
@@ -71,6 +75,18 @@ public final class PlayerPortalKind implements PortalKind {
                 new PortalEmitter(List.of(SpellParticleOption.create(ParticleTypes.EFFECT,
                         PALE_TEAL, 1.0F)), new Vec3(0.0, -1.0, 0.0), new Vec3(0.5, 0.05, 0.05),
                         true, 1, 0.02F, 10));
+    }
+
+    // The warp, at the player's own ear: the pack's sound, or vanilla's portal travel without it,
+    // which Polymer swaps in per player.
+    @Override
+    public void travelSound(Entity entity) {
+        if (entity instanceof ServerPlayer player) {
+            player.connection.send(new ClientboundSoundPacket(
+                    BuiltInRegistries.SOUND_EVENT.wrapAsHolder(PortalSounds.PORTAL_JUMP),
+                    SoundSource.AMBIENT, player.getX(), player.getY(), player.getZ(), WARP_VOLUME,
+                    1.0F, player.getRandom().nextLong()));
+        }
     }
 
     @Override

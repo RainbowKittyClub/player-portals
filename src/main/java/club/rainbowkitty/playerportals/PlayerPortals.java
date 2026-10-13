@@ -18,6 +18,7 @@ import club.rainbowkitty.playerportals.portal.PlayerPortalKind;
 import club.rainbowkitty.playerportals.portal.PortalLinks;
 import club.rainbowkitty.playerportals.portal.PortalMaterials;
 import club.rainbowkitty.playerportals.portal.PortalProtection;
+import club.rainbowkitty.playerportals.portal.PortalSounds;
 
 /** Mod entrypoint. */
 public final class PlayerPortals implements ModInitializer {
@@ -47,6 +48,7 @@ public final class PlayerPortals implements ModInitializer {
         CatalystComponents.init();
         FrameBlocks.init();
         PortalMaterials.init();
+        PortalSounds.init();
         portals = Portals.register(MOD_ID, "portal", new PlayerPortalKind(),
                 PortalBlock.defaultProperties());
         CatalystItems.init();
