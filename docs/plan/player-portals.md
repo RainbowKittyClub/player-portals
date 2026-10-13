@@ -424,8 +424,11 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 51 legs after the frame-block and framework reworks, all
-PASS in about 2 min 30 s against a fresh dev server, among them one `item_display` per interior
+`scripts/loadtest/player-portals.js`, 52 legs after the frame-block and framework reworks, all
+PASS in about 2 min 30 s against a fresh dev server, among them two puddle legs (one `text_display`
+per landing with the `drip_land` sprite in `#008888`, on the floor with its near edge 0.01 off the
+face, paired with its drip sound; none for a bot without the pack, never more at once than frame
+blocks standing, each gone within 7 s), one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
 the beacon sound heard, and a flat portal's interior shattering as nether portal blocks. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
