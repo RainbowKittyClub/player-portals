@@ -119,62 +119,121 @@ spark along the bottom edge every ten.
 
 **The frame block weeps and sounds like deepslate (user request, 2026-10-12).** A client without
 the pack sees crying obsidian and gets its purple drips from the client itself; one with the pack
-sees a note block, which neither drips nor sounds of stone. So the block schedules a tick for
-itself when placed (random ticks start blocks placed before), and each tick sends players with the
-pack within 32 blocks one `trail` particle in `#008888` falling from a random exposed face, then
-reschedules 5 to 15 s on, about crying obsidian's pace and nothing between drops. The break
-effect names deepslate (`getPolymerBreakEventBlockState`), which Polymer sends to the miner too;
-step, hit, place and fall go through Polymer's sound patcher, `SoundPatcher.convertIntoServerSound
-(SoundType.WOOD)`: the pack mutes the client's own wood sounds and the server plays the real
-block's, deepslate here, to the player as well. That conversion is server-wide: every wood-sounding
-block's sounds now reach a pack client from the server instead of its own prediction. The patcher
-renames the moved sound ids in every outgoing packet whether or not the receiver holds the pack,
-which would silence every wood sound a client without it hears from others, so
-`mixin/SoundRemapperMixin` keeps the rename to clients with the pack. Later the same day, on
-seeing few drops: a block tries every 2 to 6 s, each drop is a bead of dust clinging to the face
-plus the falling trail, and the block's next tick, 25 ticks on, lands it with a soft dripstone
-drip for the same players. A pack may re-sprite an existing particle type but never add one,
-and every vanilla drip type multiplies a fixed colour (water blue, lava orange, honey amber,
-obsidian tear purple, nectar amber, spore blossom green) onto shared grey sprites in client code,
-so none reaches teal. The drop is therefore vanilla's `trail`, the one colourable particle that
-moves to a target over a set time, kept as its plain dot after a droplet sprite was tried and
-turned down, and living an obsidian tear's life (DripParticle.java:386, 541, 598): it hangs on
-the face 100 ticks as a trail that goes nowhere, falls as one that does to the first block with
-collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a
-the drip; a drop over nothing fades in the air. The drop hangs 0.08 out from the face and rests
-0.14 above the floor, being a quarter-block quad that faces the camera, which the floor would
-otherwise swallow half of. The puddle it leaves is vanilla's own landing sprite,
-`drip_land` of the `particles` atlas, tinted for `#008888` as the one glyph of a text display. 26.1's
-object text component (`Component.object(new AtlasSprite(atlas, sprite))`, `ObjectContents`)
-puts an atlas sprite in text, `AtlasGlyphProvider` draws it as an 8-pixel glyph in the text's
-colour, and the display gives it what no particle has from the server: a colour of its own and a
-scale, 1 to 2 at random, so the bar, four pixels of the eight, is 0.1 to 0.2 block long, as in the
-tear's own 0.2 to 0.4 quad. It is a centre billboard like the tear's own particle (a flat sheet
-laid along the drop's face was tried first and turned down the same day). `DisplayRenderer` draws
-a one-glyph line with the glyph box from 3 pixels left of the entity to 5 right and 2 above to 10
-(its `1 - width/2` and `-height` offsets at 0.025 a pixel, the glyph's top one pixel over its
-baseline), and the bar is the box's fourth row, so the translation, applied after the billboard's
-turn, moves the bar's centre, a pixel right and 6.5 up, onto the entity whichever way it faces;
-the entity sits under the drop, 0.01 plus half the bar's thickness above the floor, so no edge of
-the bar reaches the floor from any angle. Brightness override 15/15, which packs to 15728880, the
-very value `TrailParticle.getLightCoords` returns for the drop (TrailParticle.java:60), so in
-vanilla the two are lit alike; on the user's shader client the puddle still reads darker than the
-drop, since the pack lights entity text its own way and leaves particles be, and nothing sent
-from the server changes that. What did differ on every client was what the tint fell on: the
-trail's sprite `generic_0` is one white pixel and shows its tint as given, where `drip_land`'s
-bar is grey 213 with one white highlight pixel and shows 213/255 of its tint, so one `#008888`
-gave a drop at 136 of 255 and a puddle body at 114. Both now tint for 125, halfway between
-(user, 2026-10-13): the drop `#007D7D`, the puddle `#009696`, whose body renders 125.3 and
-highlight 150; the trail's own random ±12.5 % per channel (TrailParticle.java:29) still plays
-over the drop. No background, no shadow,
-pack watchers only (visibility predicate), one non-ticking `ChunkAttachment` holder per puddle,
-dried when the block's next drop forms 2 to 6 s on, as a tear's splash lasts, or the block goes.
-Before this (same day) the puddle was a row of five to eight trail dots a twentieth of a block
-apart, each facing the camera along a line fixed in the world, because no particle can be
-stretched from the server (only `dust` takes a size, and a uniform one); an item display of a bar
-sprite was tried before that and set aside as an item is lit and shaded as a model, which a shader
-client makes plain. The user found the sprite component and that it draws as wanted on their
-client. The warp a player hears on arriving is the mod's own
+sees the block's own texture on a state lent by Polymer's pool, which neither drips nor, at first,
+sounded of stone. So the block schedules a tick for itself when placed (random ticks start blocks
+placed before), and a block tries for a drop every 2 to 6 s, sent only to players with the pack.
+A pack may re-sprite an existing particle type but never add one, and every vanilla drip type
+multiplies a fixed colour (water blue, lava orange, honey amber, obsidian tear purple, nectar
+amber, spore blossom green) onto shared grey sprites in client code, so no drip particle reaches
+teal. The drop lives an obsidian tear's life (DripParticle.java:386, 541, 598): it hangs on a
+random exposed face other than the top 100 ticks, at a spot clear of collision, falls to the
+first visual shape straight below it (a fence's post, not its taller collision), at most 16 down,
+in the ticks a gravity of 0.01 would take, and lands with a soft dripstone drip, leaving a puddle
+until the block's next try at a drop; a drop over nothing, or onto a liquid, is gone when it
+would have landed.
+
+How the drop is drawn went through four forms on 2026-10-12 and 13. First a `trail` particle, the
+one colourable particle that moves to a target over a set time, as its plain dot (a droplet sprite
+was tried and turned down), hanging as a trail that goes nowhere and falling as one that does.
+The puddle was then a row of five to eight trail dots, since no particle can be stretched from the
+server (only `dust` takes a size, and a uniform one), then an item display of a bar sprite, set
+aside because an item is lit and shaded as a model, which a shader client makes plain. The user
+then found 26.1's object text component (`Component.object(new AtlasSprite(atlas, sprite))`,
+`ObjectContents`): `AtlasGlyphProvider` draws an atlas sprite as an 8-pixel glyph in the text's
+colour, so a text display gives vanilla's own `drip_land` sprite what no particle has from the
+server, a colour and a scale. The puddle became that, first as a flat sheet along the face, then
+as a centre billboard like the tear's own particle (user, 2026-10-13). The trail and the sprite
+were lit alike on paper, both 15728880 (`TrailParticle.getLightCoords`, TrailParticle.java:60, and
+a brightness override of 15/15), but the user's shader lights entity text its own way and leaves
+particles be, and their tints fell on different greys (the trail's `generic_0` is one white pixel,
+`drip_land`'s bar grey 213), so the user asked for the drop to be a sprite display too.
+
+As built (2026-10-13), each drop is one text display that changes in place
+(`VoidDeepslateBlock.Drop`): vanilla's `drip_hang` sprite on the face, `drip_fall` for the fall,
+`drip_land` as the puddle. All three are grey 213 with one white highlight, tinted `#009696` so
+the grey renders at 125 of 255, the brightness the user had matched the drop and puddle at. Scale
+1 to 2 at random, held through the drop's life, so the dot is 0.05 to 0.1 across and the bar 0.1
+to 0.2 long, as in the tear's own 0.2 to 0.4 quad; centre billboard; brightness 15/15; no
+background or shadow; pack watchers only. `DisplayRenderer` draws a one-glyph line with the glyph
+box from 3 pixels left of the entity to 5 right and 2 above to 10 (its `1 - width/2` and `-height`
+offsets at 0.025 a pixel), so each mark's centre lies a pixel right and 9 (hanging dot), 8
+(falling dot) or 6.5 (bar) up; the translation, applied after the billboard's turn, moves it onto
+the entity whichever way it faces. The dot hangs 0.08 out from the face, so it never cuts into the
+block. The fall is one data update and one move: the display's position interpolation (data index
+10, `teleport_duration`) set to the fall's ticks makes the client glide it there at constant speed,
+as the trail moved (TrailParticle.java:44-56), so the server sends one packet pair per step and
+ticks nothing. Only a saved display clamps that to 59 ticks (`Display.java:221`; the synced
+value is taken as sent), the client snaps moves over 64 blocks (ClientPacketListener.java:653),
+and the longest fall, under 16 blocks, takes 57. The dot comes
+to rest 0.01 plus half its height above the floor; landing turns it into the puddle and, with the
+interpolation set back to 0 (InterpolationHandler.java:50), snaps it to 0.01 plus half the bar's
+thickness. The holder never ticks; each step calls `holder.tick()` once to send its changes,
+data before the move. It is a `BlockBoundAttachment` on the frame block (its constructor, which
+Polymer marks internal, since the public factory serves only blocks that keep a holder of their
+own), so Polymer takes the display away on any change to that block, a strict `/setblock` that
+skips `affectNeighborsAfterRemoval` included (WorldChunkMixin.java:87-97); a drop whose display
+is gone, with its block or its chunk, is forgotten at that spot's next tick. Drops are kept per
+dimension, so frame blocks at the same coordinates in two no longer share one, and forgotten at
+server stop. Known: a player who starts watching mid-fall is spawned the dot where it is going
+and sees it sit there until it lands, as Polymer spawns an element at its last synced position. The cost over the particles: up to one display per frame
+block at a time, and its packets reach every pack player with the chunk loaded rather than those
+within 32 blocks, about 0.5 KB/s per nearby player for a 3 by 4 portal.
+
+**Registration reworked (user report, 2026-10-13).** On their client the user saw three faults:
+placing the block showed crying obsidian, broken with particles, before the real block; their own
+steps and the rain on it sounded of a note block; and it did not light up as crying obsidian does.
+All three came from what a client with the pack was sent, compared against `sensible-storage` and
+the Enderscape Polymer patch (decompiled):
+
+- The item. A client predicts placing the block of the block item it holds, and the pack client
+  held crying obsidian (with the block's model), so it showed crying obsidian until the server's
+  state replaced it. `VoidDeepslateItem` now sends it a `trial_key` with the model, as Polymer's
+  own `PolymerBlockItem` and the Enderscape patch do. A trial key predicts nothing, so that client
+  neither swings nor hears the place sound itself. Polymer's hooks for that
+  (`isPolymerBlockInteraction`, `isIgnoringBlockInteractionPlaySoundExceptedEntity`) answer for any
+  click the server takes, so a door opened with the item in hand would have sounded and swung
+  twice, and they ask nothing on the last of a stack, already spent (the harness caught that one:
+  no swing). So `place()` itself, for a pack client, returns its success with the server's swing
+  and runs inside `PolymerUtils.ignorePlaySoundExclusion()` so the placer hears vanilla's place
+  sound; the override is a no-op inside one of Polymer's own, so nothing doubles. `HandClicks`
+  already drops the off-hand half of the click. A client without the pack still holds crying
+  obsidian, which it is then shown, so its prediction is right. `sensible-storage`'s planked
+  crafting tables and bookshelves have the old pattern (vanilla block item, note-block pack state);
+  there the flash is a vanilla crafting table or bookshelf, which barely shows.
+- The state. `PolymerBlockResourceUtils.requestBlock(FULL_BLOCK, …)` hands out note blocks first.
+  A client works its own footsteps, hits, placing and falls out from the block it is shown, and so
+  do client mods: the user's Presence Footsteps maps `minecraft:note_block` to `woodutility`, and
+  coolrain picks rain sounds from lists of block ids, `minecraft:note_block` in its
+  `MUSICAL_BLOCKS`. Polymer's full-block pool also holds the infested blocks and the double slabs,
+  whose real copies it shows as their host or full block once a state is claimed
+  (`DefaultModelData.java:64-82, 533-610`; only claimed states are remapped,
+  BlockResourceCreator.java:142-157). `FrameBlocks.textured` asks the pool, through the public
+  predicate overload of `BlockResourceCreator.requestBlock` (the pool reached by
+  `mixin/PolymerBlockResourceUtilsAccessor`, keeping back the last state as the public path does),
+  for `infested_deepslate[axis=x]`, else any full-block state. It sounds as deepslate, Presence
+  Footsteps calls it `slate` as it does deepslate, and coolrain lists it nowhere. The cost: a real
+  sideways infested deepslate shows as chiseled deepslate (Polymer's chosen host), but infested
+  deepslate generates upright (OreFeatures.java:122), so only one a creative player placed
+  sideways is touched, and only such a player would predict this state. Cobbled deepslate's double
+  slab was tried first and dropped the same day: a pack client predicts that state whenever it
+  doubles a real cobbled deepslate slab and would flash this block's texture, the fault this rework
+  set out to remove. With the client's own sounds right, the server-wide
+  `SoundPatcher.convertIntoServerSound(SoundType.WOOD)` and its `SoundRemapperMixin` are gone; they
+  would have left a pack client's own steps on every other mod's note-block blocks, Enderscape's
+  stone among them, silent, since the pack muted wood and only converted sounds are replayed. The
+  break effect is no longer overridden to deepslate either: each client gets the state it is
+  shown, so a pack client sees this block's own texture shatter.
+- The light. The pack's state gives no light, and a client relights a block it is shown from that
+  block, dimming it on any nearby change. Polymer resends the server's light near a block whose
+  client state's light differs (BlockStateMixin.java:30-41, ServerChunkCacheMixin.java:113-123),
+  but finds those by asking for the state of a client it knows nothing of, which here is crying
+  obsidian, as bright as this; `forceLightUpdates` now tells it so. Known: a creative break the
+  server refuses (the break gate, a claim) leaves that pack client dark around the block, since
+  its prediction relit the area and the server's light never changed, so nothing is resent until
+  the light there next changes. Light sent at the refusal would be undone when the client applies
+  the restored block on the server's acknowledgement; a fix needs a resend a tick later.
+
+The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
 and faded over its last 0.35 s to mono OGG by ffmpeg; the source stays in `media/sounds/`),
 through Polymer's sound-event overlay, so a client without the pack hears vanilla's portal
