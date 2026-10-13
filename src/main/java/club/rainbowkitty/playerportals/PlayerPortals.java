@@ -21,6 +21,9 @@ import club.rainbowkitty.playerportals.portal.PortalSounds;
 /** Mod entrypoint. */
 public final class PlayerPortals implements ModInitializer {
     public static final String MOD_ID = "playerportals";
+    // A faint glow, where a nether portal gives 11: every client is shown the portal as a light
+    // block of the same level, so its own lighting agrees.
+    private static final int PORTAL_LIGHT = 2;
 
     private static FallbackText text;
     private static Portals portals;
@@ -48,7 +51,7 @@ public final class PlayerPortals implements ModInitializer {
         PortalMaterials.init();
         PortalSounds.init();
         portals = Portals.register(MOD_ID, "portal", new PlayerPortalKind(),
-                PortalBlock.defaultProperties());
+                PortalBlock.defaultProperties().lightLevel(state -> PORTAL_LIGHT));
         CatalystItems.init();
         PortalTabs.register();
         PortalProtection.register();
