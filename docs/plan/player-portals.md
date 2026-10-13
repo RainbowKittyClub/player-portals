@@ -271,6 +271,9 @@ the Enderscape Polymer patch (decompiled):
   `spawnDestroyParticles`) the client then never plays; it does so for any game mode. A creative
   client breaks at once and plays that event itself, so the breaker heard the block break twice.
   `handleMiningOnServer` now answers false for a creative player, leaving that break to vanilla.
+  The answer moved into kalic0re 0.27.0 as `common/mining` `VanillaCreativeBreak` the same day,
+  which the frame block and the framework's portal block both implement and `sensible-storage`'s
+  planked blocks take too; this mod shades `mining` with `portal`.
 
 **The portal's light (user request, 2026-10-13).** The portal block gives light 2, not a nether
 portal's 11 (`PlayerPortals.PORTAL_LIGHT`, passed to `Portals.register` over
@@ -541,7 +544,7 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 69 legs after the frame-block and framework reworks, all
+`scripts/loadtest/player-portals.js`, 70 legs after the frame-block and framework reworks, all
 PASS against a fresh dev server (2026-10-13), among them the drop legs (per drop one
 `text_display` through `drip_hang`, `drip_fall` and `drip_land` in `#009696`, same entity id,
 scale 1 to 2, centre billboard, brightness 15728880, background 0, the glide's data before its
@@ -552,7 +555,7 @@ once than frame blocks standing) and the frame-block legs (`infested_deepslate[a
 pack, crying obsidian without; a `trial_key` item with the pack; one place sound and a server
 swing to a placer with the pack, two swing packets in one tick being vanilla's
 `handleUseItemOn`, which has its server-swing branch twice; no swing or sound when the item opens
-a door; light resent within 150 ms of placing and of breaking beside it; a creative breaker sent no break event and a survival one exactly one, each watcher one, with and without the pack; the frame item held as `infested_deepslate` pinned to `axis=x` with the pack, its placement predicted, so the placer is sent no sound or swing in any case and a watcher one of each; a catalyst's attune, link (the last of a stack) and admin clicks swinging from the server, its refusals not; portal stand-ins `light[level=2]`; wood sounds under their
+a door; light resent within 150 ms of placing and of breaking beside it; a creative breaker sent no break event and a survival one exactly one, each watcher one, with and without the pack; the frame item held as `infested_deepslate` pinned to `axis=x` with the pack, its placement predicted, so the placer is sent no sound or swing in any case and a watcher one of each; a catalyst's attune, link (the last of a stack) and admin clicks swinging from the server, its refusals not; portal stand-ins `light[level=2]`, and a creative break of a portal's interior sending the breaker no break event for it; wood sounds under their
 vanilla ids), one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
