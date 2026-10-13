@@ -204,7 +204,7 @@ the Enderscape Polymer patch (decompiled):
   obsidian. LambDynamicLights would give it its block's light, 0, so the pack carries
   `assets/playerportals/dynamiclights/item/void_infused_deepslate.json`, matching
   `minecraft:infested_deepslate` only with this `item_model` (its `match` is vanilla's
-  `ItemPredicate`, components included), at luminance 10, held and dropped. A client without the
+  `ItemPredicate`, components included), at the block's own light, held and dropped. A client without the
   pack still holds crying obsidian, which it is then shown, so its guess is right. With every
   client predicting its own clicks on the block, the block declines Polymer's
   `isPolymerBlockInteraction` (true by default for a Polymer block), which had the server swing
@@ -259,8 +259,8 @@ the Enderscape Polymer patch (decompiled):
   so the surface is deepslate's (`terrainMaterials.glsl` sends 10108 to 10111 there; only
   `mat % 4 == 1` means anything, non-solid); `voxelization.glsl` gives 10110 light 29, the soul
   fire colour; `shadowChecks.glsl` lists it as emissive, with the soul torch's colour
-  (0.15, 0.85, 0.85) and crying obsidian's brightness (`BRIGHTNESS_CRYING`, 12), both lights being
-  10. The held item: Iris gives a block item its block's default state's id when it renders
+  (0.15, 0.85, 0.85) and crying obsidian's brightness (`BRIGHTNESS_CRYING`, 12), less three since
+  the block's light went from 10 to 7. The held item: Iris gives a block item its block's default state's id when it renders
   (`ItemStackStateLayerMixin.iris$setupId`), here `infested_deepslate[axis=y]`, which is also
   infested deepslate as it generates. That state got its own id, 10111, deepslate in every way, and
   `program/shadow.glsl` treats an item rendering as 10111 as 10110, so the item glows held or
@@ -274,6 +274,15 @@ the Enderscape Polymer patch (decompiled):
   The answer moved into kalic0re 0.27.0 as `common/mining` `VanillaCreativeBreak` the same day,
   which the frame block and the framework's portal block both implement and `sensible-storage`'s
   planked blocks take too; this mod shades `mining` with `portal`.
+
+**The frame block's light (user request, 2026-10-13).** Void-infused deepslate gives light 7,
+three under crying obsidian's 10. A client without the pack still sees crying obsidian, now three
+levels brighter than the server's block: its own relighting after a nearby change briefly says 10,
+and Polymer's resend, which `forceLightUpdates` already asks for every watcher, sets it back to 7.
+No full block gives 7 without looking like something else (a twice-charged respawn anchor is the
+nearest). The pack's LambDynamicLights item light is 7; a client without the pack holds crying
+obsidian and keeps that mod's 10 for it. The user's shader patch gives the block crying obsidian's
+brightness less three.
 
 **The portal's light (user request, 2026-10-13).** The portal block gives light 2, not a nether
 portal's 11 (`PlayerPortals.PORTAL_LIGHT`, passed to `Portals.register` over
@@ -549,7 +558,7 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 70 legs after the frame-block and framework reworks, all
+`scripts/loadtest/player-portals.js`, 71 legs after the frame-block and framework reworks, all
 PASS against a fresh dev server (2026-10-13), among them the drop legs (per drop one
 `text_display` through `drip_hang`, `drip_fall` and `drip_land` in `#009696`, same entity id,
 scale 1 to 2, centre billboard, brightness 15728880, background 0, the glide's data before its
@@ -560,7 +569,7 @@ once than frame blocks standing) and the frame-block legs (`infested_deepslate[a
 pack, crying obsidian without; a `trial_key` item with the pack; one place sound and a server
 swing to a placer with the pack, two swing packets in one tick being vanilla's
 `handleUseItemOn`, which has its server-swing branch twice; no swing or sound when the item opens
-a door; light resent within 150 ms of placing and of breaking beside it; a creative breaker sent no break event and a survival one exactly one, each watcher one, with and without the pack; the frame item held as `infested_deepslate` pinned to `axis=x` with the pack, its placement predicted, so the placer is sent no sound or swing in any case and a watcher one of each; a catalyst's attune, link (the last of a stack) and admin clicks swinging from the server, its refusals not; portal stand-ins `light[level=2]`, and a creative break of a portal's interior sending the breaker no break event for it; wood sounds under their
+a door; light resent within 150 ms of placing and of breaking beside it, 6 a block from the frame block's 7, to a bot without the pack as well; a creative breaker sent no break event and a survival one exactly one, each watcher one, with and without the pack; the frame item held as `infested_deepslate` pinned to `axis=x` with the pack, its placement predicted, so the placer is sent no sound or swing in any case and a watcher one of each; a catalyst's attune, link (the last of a stack) and admin clicks swinging from the server, its refusals not; portal stand-ins `light[level=2]`, and a creative break of a portal's interior sending the breaker no break event for it; wood sounds under their
 vanilla ids), one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
