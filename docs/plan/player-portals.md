@@ -141,8 +141,10 @@ moves to a target over a set time, kept as its plain dot after a droplet sprite 
 turned down, and living an obsidian tear's life (DripParticle.java:386, 541, 598): it hangs on
 the face 100 ticks as a trail that goes nowhere, falls as one that does to the first block with
 collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a
-splash, the same dot standing 28/(0.2..1.0) ticks as a tear's bar-shaped one does, plus the
-drip; a drop over nothing fades in the air. The warp a player hears on arriving is the mod's own
+splash plus the drip; a drop over nothing fades in the air. The splash is a bar of three of the
+drop's dots 0.11 apart along one horizontal axis, standing 28/(0.2..1.0) ticks as a tear's does,
+0.15 above the floor: a camera-facing quad centred on the floor itself has half of its height
+under it and fights the rest from above, which is why the first splash was never seen. The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
 and faded over its last 0.35 s to mono OGG by ffmpeg; the source stays in `media/sounds/`),
 through Polymer's sound-event overlay, so a client without the pack hears vanilla's portal

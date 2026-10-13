@@ -53,8 +53,12 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final int HANG_TICKS = 100;
     private static final double FALL_GRAVITY = 0.01;
     private static final int MAX_FALL = 16;
-    // A tear's landing splash lives 28 / (0.2..1.0) ticks, 1.4 to 7 s.
+    // A tear's landing splash lives 28 / (0.2..1.0) ticks, 1.4 to 7 s. It is a bar: three of the
+    // drop's dots in a row, each a quarter-block quad facing the camera, so they must rest a
+    // little above the floor or the floor hides half of each and fights the rest.
     private static final double SPLASH_TICKS = 28.0;
+    private static final double SPLASH_LIFT = 0.15;
+    private static final double SPLASH_SPACING = 0.11;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
@@ -167,14 +171,16 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         return Drop.hanging(from, floorBelow(level, from));
     }
 
-    // The top of the first block with collision under `from`, within reach, else null.
+    // Just above the top of the first block with collision under `from`, within reach, else
+    // null.
     private static @Nullable Vec3 floorBelow(ServerLevel level, Vec3 from) {
         BlockPos.MutableBlockPos below = BlockPos.containing(from).mutable();
         for (int i = 0; i < MAX_FALL; i++) {
             below.move(Direction.DOWN);
             VoxelShape shape = level.getBlockState(below).getCollisionShape(level, below);
             if (!shape.isEmpty()) {
-                return new Vec3(from.x, below.getY() + shape.max(Direction.Axis.Y), from.z);
+                return new Vec3(from.x, below.getY() + shape.max(Direction.Axis.Y) + SPLASH_LIFT,
+                        from.z);
             }
         }
         return null;
@@ -217,11 +223,15 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // The drop lands: a splash that stays where it fell as long as a tear's would, and a soft
-    // drip. The splash is the same dot as the drop; a particle type has one sprite.
+    // The drop lands: a bar of three dots that stays where it fell as long as a tear's splash
+    // would, lying along one horizontal axis or the other, and a soft drip.
     private static void land(ServerLevel level, Vec3 at, RandomSource random) {
         int splash = (int) (SPLASH_TICKS / (random.nextFloat() * 0.8F + 0.2F));
-        send(level, at, new TrailParticleOption(at, TEAR, splash));
+        Direction.Axis along = random.nextBoolean() ? Direction.Axis.X : Direction.Axis.Z;
+        for (int i = -1; i <= 1; i++) {
+            Vec3 dot = at.with(along, at.get(along) + i * SPLASH_SPACING);
+            send(level, dot, new TrailParticleOption(dot, TEAR, splash));
+        }
         double x = at.x;
         double y = at.y;
         double z = at.z;
