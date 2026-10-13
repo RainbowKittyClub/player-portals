@@ -47,6 +47,8 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 
+import club.rainbowkitty.kalic0re.common.mining.VanillaCreativeBreak;
+
 /**
  * The block a frame is built from: deepslate with an ender pearl in it, glowing like crying
  * obsidian. A client with the resource pack sees its own texture on a pool state that sounds as
@@ -65,7 +67,8 @@ import net.minecraft.world.phys.shapes.CollisionContext;
  * own, and lies there as the puddle a tear leaves, with a soft drip that crying obsidian's never
  * make, until the block's next try at a drop.
  */
-public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
+public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock,
+        VanillaCreativeBreak {
     private static final int LIGHT = 10;
     private static final BlockState FALLBACK = Blocks.CRYING_OBSIDIAN.defaultBlockState();
     // The tear's three sprites are vanilla's own: a dot hanging, the dot falling and the bar it
@@ -150,16 +153,6 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     @Override
     public boolean forceLightUpdates(BlockState state) {
         return true;
-    }
-
-    // Polymer mines a block of its own on the server, under mining fatigue so the client never
-    // finishes first, and sends the breaker the break effect the client then never plays. A
-    // creative client breaks at once and plays that effect itself, so for a creative player
-    // Polymer is kept out, or the breaker hears the block break twice.
-    @Override
-    public boolean handleMiningOnServer(ItemStack tool, BlockState state, BlockPos pos,
-            ServerPlayer player) {
-        return !player.isCreative();
     }
 
     // Polymer swings from the server after any click on a block of its own that did something,
