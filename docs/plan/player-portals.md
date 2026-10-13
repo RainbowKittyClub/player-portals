@@ -185,21 +185,36 @@ steps and the rain on it sounded of a note block; and it did not light up as cry
 All three came from what a client with the pack was sent, compared against `sensible-storage` and
 the Enderscape Polymer patch (decompiled):
 
-- The item. A client predicts placing the block of the block item it holds, and the pack client
-  held crying obsidian (with the block's model), so it showed crying obsidian until the server's
-  state replaced it. `VoidDeepslateItem` now sends it a `trial_key` with the model, as Polymer's
-  own `PolymerBlockItem` and the Enderscape patch do. A trial key predicts nothing, so that client
-  neither swings nor hears the place sound itself. Polymer's hooks for that
-  (`isPolymerBlockInteraction`, `isIgnoringBlockInteractionPlaySoundExceptedEntity`) answer for any
-  click the server takes, so a door opened with the item in hand would have sounded and swung
-  twice, and they ask nothing on the last of a stack, already spent (the harness caught that one:
-  no swing). So `place()` itself, for a pack client, returns its success with the server's swing
-  and runs inside `PolymerUtils.ignorePlaySoundExclusion()` so the placer hears vanilla's place
-  sound; the override is a no-op inside one of Polymer's own, so nothing doubles. `HandClicks`
-  already drops the off-hand half of the click. A client without the pack still holds crying
-  obsidian, which it is then shown, so its prediction is right. `sensible-storage`'s planked
-  crafting tables and bookshelves have the old pattern (vanilla block item, note-block pack state);
-  there the flash is a vanilla crafting table or bookshelf, which barely shows.
+- The item. A client holding a block item predicts placing that block: it puts the block into its
+  own world, plays its place sound and swings, and the server's answer replaces the guess. The
+  pack client held crying obsidian (drawn with the block's model), so it guessed crying obsidian
+  and showed it until the server's state replaced it. For part of 2026-10-13 it held a `trial_key`
+  instead, as Polymer's own `PolymerBlockItem` and the Enderscape patch do: no guess, but the
+  server had to swing for it and send it the place sound, and a trial key is what client mods see.
+  The user's Sounds mod plays its trial-spawner jingle for any trial key (its built-in
+  `sounds/items/trial_keys.json`), so every trial-key Polymer item rings; LambDynamicLights gives
+  a trial key no light, nor does Iris give a held non-block item any but by its `item_model`. As
+  built, `VoidDeepslateItem` sends the pack client the item of the very state it is shown
+  (`infested_deepslate`), with a `block_state` component pinning every property of that state:
+  `BlockItem.place` applies the component on the client too (BlockItem.java:70, 118), so the
+  client guesses `infested_deepslate[axis=x]`, exactly what the server places, instead of the axis
+  of the face clicked. No flash, the client swings and plays deepslate's place sound itself, and
+  the server-side workaround is gone. As a block item it is heard as its block: Sounds plays
+  infested deepslate's place sound, `block.deepslate.place`, the same it plays for crying
+  obsidian. LambDynamicLights would give it its block's light, 0, so the pack carries
+  `assets/playerportals/dynamiclights/item/void_infused_deepslate.json`, matching
+  `minecraft:infested_deepslate` only with this `item_model` (its `match` is vanilla's
+  `ItemPredicate`, components included), at luminance 10, held and dropped. A client without the
+  pack still holds crying obsidian, which it is then shown, so its guess is right. With every
+  client predicting its own clicks on the block, the block declines Polymer's
+  `isPolymerBlockInteraction` (true by default for a Polymer block), which had the server swing
+  after any click on it that did something, twice over (vanilla 26.2's `handleUseItemOn` has its
+  server-swing branch twice), on top of the client's own swing; the catalysts, held as a heart of
+  the sea that predicts nothing, return `SUCCESS_SERVER` when they act, so the server swings for
+  them even for the click that uses up the last one.
+  `sensible-storage`'s planked crafting tables and bookshelves have the crying-obsidian pattern
+  (vanilla block item, note-block pack state); there the flash is a vanilla crafting table or
+  bookshelf, which barely shows.
 - The state. `PolymerBlockResourceUtils.requestBlock(FULL_BLOCK, …)` hands out note blocks first.
   A client works its own footsteps, hits, placing and falls out from the block it is shown, and so
   do client mods: the user's Presence Footsteps maps `minecraft:note_block` to `woodutility`, and
@@ -245,12 +260,24 @@ the Enderscape Polymer patch (decompiled):
   `mat % 4 == 1` means anything, non-solid); `voxelization.glsl` gives 10110 light 29, the soul
   fire colour; `shadowChecks.glsl` lists it as emissive, with the soul torch's colour
   (0.15, 0.85, 0.85) and crying obsidian's brightness (`BRIGHTNESS_CRYING`, 12), both lights being
-  10. Another voxel shader needs its own entry.
+  10. The held item: Iris gives a block item its block's default state's id when it renders
+  (`ItemStackStateLayerMixin.iris$setupId`), here `infested_deepslate[axis=y]`, which is also
+  infested deepslate as it generates. That state got its own id, 10111, deepslate in every way, and
+  `program/shadow.glsl` treats an item rendering as 10111 as 10110, so the item glows held or
+  dropped while generated infested deepslate does not; a real infested deepslate item, creative
+  only, glows too. Another voxel shader needs its own entries.
 - The break sound (user report, 2026-10-13). Polymer mines its blocks on the server under mining
   fatigue, so a client never finishes first, and sends the breaker the break event (BlockMixin:
   `spawnDestroyParticles`) the client then never plays; it does so for any game mode. A creative
   client breaks at once and plays that event itself, so the breaker heard the block break twice.
   `handleMiningOnServer` now answers false for a creative player, leaving that break to vanilla.
+
+**The portal's light (user request, 2026-10-13).** The portal block gives light 2, not a nether
+portal's 11 (`PlayerPortals.PORTAL_LIGHT`, passed to `Portals.register` over
+`PortalBlock.defaultProperties()`); the framework shows every client the portal as a light block
+of the block's own level, so the client stand-in is `light[level=2]` and its lighting agrees.
+Portals lit before keep the old light in saved chunks until the light there is next recomputed,
+for instance by relighting the portal.
 
 The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
@@ -514,7 +541,7 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 68 legs after the frame-block and framework reworks, all
+`scripts/loadtest/player-portals.js`, 69 legs after the frame-block and framework reworks, all
 PASS against a fresh dev server (2026-10-13), among them the drop legs (per drop one
 `text_display` through `drip_hang`, `drip_fall` and `drip_land` in `#009696`, same entity id,
 scale 1 to 2, centre billboard, brightness 15728880, background 0, the glide's data before its
@@ -525,7 +552,7 @@ once than frame blocks standing) and the frame-block legs (`infested_deepslate[a
 pack, crying obsidian without; a `trial_key` item with the pack; one place sound and a server
 swing to a placer with the pack, two swing packets in one tick being vanilla's
 `handleUseItemOn`, which has its server-swing branch twice; no swing or sound when the item opens
-a door; light resent within 150 ms of placing and of breaking beside it; a creative breaker sent no break event and a survival one exactly one, each watcher one, with and without the pack; wood sounds under their
+a door; light resent within 150 ms of placing and of breaking beside it; a creative breaker sent no break event and a survival one exactly one, each watcher one, with and without the pack; the frame item held as `infested_deepslate` pinned to `axis=x` with the pack, its placement predicted, so the placer is sent no sound or swing in any case and a watcher one of each; a catalyst's attune, link (the last of a stack) and admin clicks swinging from the server, its refusals not; portal stand-ins `light[level=2]`; wood sounds under their
 vanilla ids), one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
