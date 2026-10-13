@@ -280,7 +280,12 @@ portal's 11 (`PlayerPortals.PORTAL_LIGHT`, passed to `Portals.register` over
 `PortalBlock.defaultProperties()`); the framework shows every client the portal as a light block
 of the block's own level, so the client stand-in is `light[level=2]` and its lighting agrees.
 Portals lit before keep the old light in saved chunks until the light there is next recomputed,
-for instance by relighting the portal.
+for instance by relighting the portal. The user still saw a light of 11: LambDynamicLights lights every
+display entity without a brightness override by what it shows (`DisplayEntityLuminance`), a
+nether portal at 11 for a client without the pack, the material's `light`-based item at its own
+for one with it. kalic0re 0.27.0's `MaterialElement` now draws both at a fixed brightness, block
+light 11 and sky 15, which that mod leaves alone and which keeps the material's look, as a nether
+portal's own light drew it in the open, though the portal gives only 2.
 
 The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
