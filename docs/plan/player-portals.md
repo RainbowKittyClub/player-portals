@@ -146,7 +146,8 @@ the drip; a drop over nothing fades in the air. The drop hangs 0.08 out from the
 otherwise swallow half of. The puddle it leaves is an item display of `playerportals:puddle`, a
 generated item whose sprite is a teal bar sixteen pixels by four, so a flat plate a sixteenth
 thick at 4:1; scaled by a random length of 0.25 to 0.45 blocks on both axes it keeps the ratio,
-lies flat with a fixed billboard along the face the drop hung from, a hair above the floor and
+lies flat with a fixed billboard along the face the drop hung from, full bright as the trail
+particle always is, a hair above the floor and
 nudged back against the wall, shown to players with the pack, and goes when the block's next drop
 forms or the block does. A text-display puddle and a plain-dot splash came before it. The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble

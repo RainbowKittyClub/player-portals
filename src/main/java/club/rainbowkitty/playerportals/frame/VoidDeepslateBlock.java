@@ -23,6 +23,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Brightness;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.ItemDisplayContext;
@@ -281,6 +282,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         sheet.setLeftRotation(new Quaternionf().rotationY(yaw)
                 .rotateX((float) Math.toRadians(-90.0)));
         sheet.setScale(new Vector3f(length, length, 1.0F));
+        // The drop's trail particle is always full bright; the puddle matches it.
+        sheet.setBrightness(Brightness.FULL_BRIGHT);
         sheet.setVisibilityPredicate(
                 player -> PolymerResourcePackUtils.hasMainPack(player.connection));
         ElementHolder holder = new ElementHolder();
