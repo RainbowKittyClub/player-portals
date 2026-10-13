@@ -495,12 +495,19 @@ dev server, and `lintAll` is clean.
 
 ### As built
 
-`scripts/loadtest/player-portals.js`, 52 legs after the frame-block and framework reworks, all
-PASS in about 2 min 30 s against a fresh dev server, among them two puddle legs (one `text_display`
-per landing with the `drip_land` sprite in `#009696`, centre billboard, brightness 15728880 and
-background 0 read off the metadata, under the drop with its bar 0.01 clear of the floor, paired
-with its drip sound; none for a bot without the pack, never more at once than frame
-blocks standing, each gone within 7 s), one `item_display` per interior
+`scripts/loadtest/player-portals.js`, 65 legs after the frame-block and framework reworks, all
+PASS against a fresh dev server (2026-10-13), among them the drop legs (per drop one
+`text_display` through `drip_hang`, `drip_fall` and `drip_land` in `#009696`, same entity id,
+scale 1 to 2, centre billboard, brightness 15728880, background 0, the glide's data before its
+move, the dot 0.01 plus half its height over the floor and the puddle 0.01 plus half the bar's,
+the drip sound under it; a drop over nothing gone at its landing tick; fence, water and slab
+floors; a strict `/setblock` taking the display; none for a bot without the pack, never more at
+once than frame blocks standing) and the frame-block legs (`infested_deepslate[axis=x]` with the
+pack, crying obsidian without; a `trial_key` item with the pack; one place sound and a server
+swing to a placer with the pack, two swing packets in one tick being vanilla's
+`handleUseItemOn`, which has its server-swing branch twice; no swing or sound when the item opens
+a door; light resent within 150 ms of placing and of breaking beside it; wood sounds under their
+vanilla ids), one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
 the beacon sound heard, and a flat portal's interior shattering as nether portal blocks. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
