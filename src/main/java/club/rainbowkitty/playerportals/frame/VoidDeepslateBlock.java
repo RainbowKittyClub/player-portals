@@ -2,13 +2,15 @@ package club.rainbowkitty.playerportals.frame;
 
 import eu.pb4.polymer.blocks.api.PolymerTexturedBlock;
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
-import it.unimi.dsi.fastutil.longs.Long2ByteMap;
-import it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.TrailParticleOption;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
@@ -26,6 +28,7 @@ import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * The block a frame is built from: deepslate with an ender pearl in it. A client with the
@@ -36,8 +39,9 @@ import net.minecraft.world.phys.Vec3;
  * itself; one with the pack is sent a teal drop now and then from an exposed face, by a block
  * tick each block keeps scheduling for itself (random ticks start it on blocks placed before this
  * was so), which costs nothing between drops. No vanilla drip particle takes a colour, so the
- * drop is vanilla's {@code trail}, which does, wearing the pack's droplet sprite: it hangs on the
- * face, falls, and lands with a soft drip that crying obsidian's never make.
+ * drop is vanilla's {@code trail}, which does, living an obsidian tear's life: it hangs on the
+ * face five seconds, falls to whatever floor is below at a tear's pace, and lands as a small
+ * splash with a soft drip that crying obsidian's never make.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     private static final int LIGHT = 10;
@@ -46,17 +50,17 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     // Ticks between a block's tries at a drop: 2 to 6 seconds, a third of which find a bare face.
     private static final int DRIP_DELAY_MIN = 40;
     private static final int DRIP_DELAY_SPAN = 80;
-    private static final int HANG_TICKS = 15;
-    private static final int FALL_TICKS = 25;
-    private static final double DRIP_FALL = 1.5;
+    // An obsidian tear's: it hangs 100 ticks, then falls under a gravity of 0.01 a tick.
+    private static final int HANG_TICKS = 100;
+    private static final double FALL_GRAVITY = 0.01;
+    private static final int MAX_FALL = 16;
+    private static final float SPLASH_SIZE = 1.0F;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
-    private static final byte HANGING = 1;
-    private static final byte FALLING = 2;
-    // Where each block's drop is, when it has one: hanging on the face or in the air. The next
-    // tick lets it fall, or lands it. A restart empties this, which costs one drop its ending.
-    private static final Long2ByteMap DROPS = new Long2ByteOpenHashMap();
+    // Each block's drop while it has one. The next tick lets a hanging drop fall, and lands a
+    // falling one. A restart empties this, which costs one drop its ending.
+    private static final Long2ObjectMap<Drop> DROPS = new Long2ObjectOpenHashMap<>();
 
     private final BlockState textured;
 
@@ -105,22 +109,30 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     }
 
     // Three ticks per drop: one hangs it on a face, the next lets it fall, the last lands it
-    // and schedules the next drop.
+    // and schedules the next drop. A drop with no floor within reach fades in the air instead.
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         long key = pos.asLong();
-        byte phase = DROPS.remove(key);
-        if (phase == HANGING) {
-            fall(level, pos, random);
-            DROPS.put(key, FALLING);
-            level.scheduleTick(pos, this, FALL_TICKS);
-        } else if (phase == FALLING) {
-            land(level, pos, random);
-            scheduleDrip(level, pos, random);
-        } else if (hang(level, pos, random)) {
-            DROPS.put(key, HANGING);
+        Drop drop = DROPS.remove(key);
+        if (drop == null) {
+            drop = hang(level, pos, random);
+            if (drop == null) {
+                scheduleDrip(level, pos, random);
+                return;
+            }
+            DROPS.put(key, drop);
             level.scheduleTick(pos, this, HANG_TICKS);
+        } else if (!drop.falling()) {
+            send(level, drop.from(),
+                    new TrailParticleOption(drop.landing(), TEAR, drop.fallTicks()));
+            if (drop.lands()) {
+                DROPS.put(key, drop.fall());
+                level.scheduleTick(pos, this, drop.fallTicks());
+            } else {
+                scheduleDrip(level, pos, random);
+            }
         } else {
+            land(level, drop.landing(), random);
             scheduleDrip(level, pos, random);
         }
     }
@@ -134,51 +146,83 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     }
 
     // A drop forms on a random exposed face other than the top, as crying obsidian picks them:
-    // a trail that stays put for the hang. False when the face drawn was covered or the top.
-    private static boolean hang(ServerLevel level, BlockPos pos, RandomSource random) {
+    // a trail that stays put for the hang. Null when the face drawn was covered or the top.
+    private static @Nullable Drop hang(ServerLevel level, BlockPos pos, RandomSource random) {
         Direction face = Direction.getRandom(random);
         if (face == Direction.UP) {
-            return false;
+            return null;
         }
         BlockPos beside = pos.relative(face);
         if (level.getBlockState(beside).isFaceSturdy(level, beside, face.getOpposite())) {
-            return false;
+            return null;
         }
-        Vec3 at = new Vec3(
+        Vec3 from = new Vec3(
                 pos.getX() + (face.getStepX() == 0 ? random.nextDouble()
                         : 0.5 + face.getStepX() * 0.55),
                 pos.getY() + (face.getStepY() == 0 ? random.nextDouble()
                         : 0.5 + face.getStepY() * 0.55),
                 pos.getZ() + (face.getStepZ() == 0 ? random.nextDouble()
                         : 0.5 + face.getStepZ() * 0.55));
-        send(level, at, new TrailParticleOption(at, TEAR, HANG_TICKS));
-        return true;
+        send(level, from, new TrailParticleOption(from, TEAR, HANG_TICKS));
+        return Drop.hanging(from, floorBelow(level, from));
     }
 
-    // The drop lets go and falls below the block; the face it hung on is not remembered, so it
-    // falls from under the block's middle.
-    private static void fall(ServerLevel level, BlockPos pos, RandomSource random) {
-        Vec3 at = new Vec3(pos.getX() + 0.3 + random.nextDouble() * 0.4, pos.getY() - 0.05,
-                pos.getZ() + 0.3 + random.nextDouble() * 0.4);
-        send(level, at, new TrailParticleOption(at.subtract(0.0, DRIP_FALL, 0.0), TEAR,
-                FALL_TICKS));
+    // The top of the first block with collision under `from`, within reach, else null.
+    private static @Nullable Vec3 floorBelow(ServerLevel level, Vec3 from) {
+        BlockPos.MutableBlockPos below = BlockPos.containing(from).mutable();
+        for (int i = 0; i < MAX_FALL; i++) {
+            below.move(Direction.DOWN);
+            VoxelShape shape = level.getBlockState(below).getCollisionShape(level, below);
+            if (!shape.isEmpty()) {
+                return new Vec3(from.x, below.getY() + shape.max(Direction.Axis.Y), from.z);
+            }
+        }
+        return null;
     }
 
-    private static void send(ServerLevel level, Vec3 at, TrailParticleOption drop) {
+    private static void send(ServerLevel level, Vec3 at, ParticleOptions particle) {
         for (ServerPlayer player : level.players()) {
             if (player.distanceToSqr(at) <= DRIP_RANGE_SQUARED
                     && PolymerResourcePackUtils.hasMainPack(player.connection)) {
-                level.sendParticles(player, drop, false, false, at.x, at.y, at.z, 1, 0.0, 0.0,
-                        0.0, 0.0);
+                level.sendParticles(player, particle, false, false, at.x, at.y, at.z, 1, 0.0,
+                        0.0, 0.0, 0.0);
             }
         }
     }
 
-    // The drop lands, about where it fell to.
-    private static void land(ServerLevel level, BlockPos pos, RandomSource random) {
-        double x = pos.getX() + 0.5;
-        double y = pos.getY() - DRIP_FALL;
-        double z = pos.getZ() + 0.5;
+    /**
+     * One block's drop, from where it hangs to where it lands.
+     *
+     * @param from where it hangs
+     * @param landing the floor it falls to, or the air {@link #MAX_FALL} below when there is none
+     * @param lands whether there was a floor
+     * @param falling whether it has let go
+     */
+    private record Drop(Vec3 from, Vec3 landing, boolean lands, boolean falling) {
+        // A drop that has just formed at `from`, over `floor` if any.
+        static Drop hanging(Vec3 from, @Nullable Vec3 floor) {
+            return new Drop(from, floor != null ? floor : from.subtract(0.0, MAX_FALL, 0.0),
+                    floor != null, false);
+        }
+
+        // The same drop, let go.
+        Drop fall() {
+            return new Drop(from, landing, lands, true);
+        }
+
+        // How long the fall takes under a tear's gravity, at least one tick.
+        int fallTicks() {
+            double height = from.y - landing.y;
+            return Math.max(1, (int) Math.round(Math.sqrt(2.0 * height / FALL_GRAVITY)));
+        }
+    }
+
+    // The drop lands: a small splash that fades where it fell, and a soft drip.
+    private static void land(ServerLevel level, Vec3 at, RandomSource random) {
+        send(level, at, new DustParticleOptions(TEAR, SPLASH_SIZE));
+        double x = at.x;
+        double y = at.y;
+        double z = at.z;
         ClientboundSoundPacket drip = new ClientboundSoundPacket(
                 BuiltInRegistries.SOUND_EVENT.wrapAsHolder(
                         SoundEvents.POINTED_DRIPSTONE_DRIP_WATER),
