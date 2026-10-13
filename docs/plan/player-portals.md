@@ -432,8 +432,9 @@ dev server, and `lintAll` is clean.
 
 `scripts/loadtest/player-portals.js`, 52 legs after the frame-block and framework reworks, all
 PASS in about 2 min 30 s against a fresh dev server, among them two puddle legs (one `text_display`
-per landing with the `drip_land` sprite in `#008888`, on the floor with its near edge 0.01 off the
-face, paired with its drip sound; none for a bot without the pack, never more at once than frame
+per landing with the `drip_land` sprite in `#008888`, centre billboard, brightness 15728880 and
+background 0 read off the metadata, under the drop with its bar 0.01 clear of the floor, paired
+with its drip sound; none for a bot without the pack, never more at once than frame
 blocks standing, each gone within 7 s), one `item_display` per interior
 block for a bot with the pack and one `nether_portal` block display for a bot that declined it, the quarter turn between an east–west and a
 north–south frame, the sneak-click destination, a shared ring column breaking both portals with
