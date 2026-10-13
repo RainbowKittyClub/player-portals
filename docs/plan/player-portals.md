@@ -133,8 +133,12 @@ which would silence every wood sound a client without it hears from others, so
 `mixin/SoundRemapperMixin` keeps the rename to clients with the pack. Later the same day, on
 seeing few drops: a block tries every 2 to 6 s, each drop is a bead of dust clinging to the face
 plus the falling trail, and the block's next tick, 25 ticks on, lands it with a soft dripstone
-drip for the same players; a static set of blocks with a drop in the air tells the two ticks
-apart, and loses nothing worse than one landing over a restart.
+drip for the same players. Then, since a pack may re-sprite an existing particle type but never
+add one, the drop became vanilla's `trail` wearing a droplet sprite from this mod
+(`assets/minecraft/particles/trail.json` names `playerportals:drop`; vanilla's own uses of
+`trail` are rare), hanging on the face 15 ticks as a trail that goes nowhere, then falling 25
+ticks as one that does, then landing with the drip; a static map of each block's drop phase tells
+the three ticks apart, and loses nothing worse than one drop's ending over a restart.
 
 **A portal collapses the way a nether portal does.** `updateShape` runs on each neighbour of a
 changed block; returning air there when an in-plane neighbour is no longer frame or portal makes
