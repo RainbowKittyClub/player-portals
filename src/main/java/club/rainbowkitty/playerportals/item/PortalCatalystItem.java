@@ -41,7 +41,7 @@ public final class PortalCatalystItem extends CatalystItem {
             attune(stack, frame);
             PortalEffects.attuned(level, frame);
             say(player, "catalyst.attuned", describe(frame));
-            return InteractionResult.SUCCESS;
+            return InteractionResult.SUCCESS_SERVER;
         }
         if (first.equals(frame)) {
             say(player, "catalyst.same_frame");
@@ -60,6 +60,6 @@ public final class PortalCatalystItem extends CatalystItem {
         }
         stack.consume(1, player);
         say(player, "catalyst.linked", describe(first));
-        return InteractionResult.SUCCESS;
+        return InteractionResult.SUCCESS_SERVER;
     }
 }

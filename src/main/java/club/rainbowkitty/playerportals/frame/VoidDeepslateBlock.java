@@ -29,6 +29,8 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Brightness;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
@@ -48,9 +50,10 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 /**
  * The block a frame is built from: deepslate with an ender pearl in it, glowing like crying
  * obsidian. A client with the resource pack sees its own texture on a pool state that sounds as
- * deepslate (see {@link FrameBlocks}) but gives no light, so Polymer resends it the server's light
- * whenever the light around the block changes. Any other client sees crying obsidian, which has
- * the same light.
+ * deepslate but gives no light (see {@link FrameBlocks}), so Polymer resends it the server's light
+ * whenever the light around the block changes; it holds the item as that state's own (see
+ * {@link VoidDeepslateItem}). Any other client sees and holds crying obsidian, which has the same
+ * light.
  *
  * <p>It weeps as crying obsidian does. A client without the pack gets that from crying obsidian
  * itself; one with the pack is shown a teal tear now and then from an exposed face, by a block
@@ -125,6 +128,11 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 .lightLevel(state -> LIGHT).randomTicks().setId(key);
     }
 
+    /** The state a client with the pack is shown this block as. */
+    public BlockState packState() {
+        return textured;
+    }
+
     /** Forgets every drop, for when the server stops. */
     public static void forgetDrops() {
         DROPS.clear();
@@ -152,6 +160,16 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     public boolean handleMiningOnServer(ItemStack tool, BlockState state, BlockPos pos,
             ServerPlayer player) {
         return !player.isCreative();
+    }
+
+    // Polymer swings from the server after any click on a block of its own that did something,
+    // for clients that cannot predict it. Every client sees a vanilla block here and predicts its
+    // own clicks; the catalyst, held as an item that predicts nothing, asks for its swing itself.
+    @Override
+    public boolean isPolymerBlockInteraction(BlockState state, ServerPlayer player,
+            InteractionHand hand, ItemStack stack, ServerLevel level, BlockHitResult hit,
+            InteractionResult result) {
+        return false;
     }
 
     // A block gone mid-drop takes its drop or puddle with it, and leaves none for the next block

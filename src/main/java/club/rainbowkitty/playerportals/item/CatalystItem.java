@@ -99,7 +99,11 @@ public abstract class CatalystItem extends PolymerModelItem {
     /** The message key, under {@code playerportals.}, for a player who may not. */
     protected abstract String deniedKey();
 
-    /** This item's answer to a click on a frame block beside {@code frame}, a complete frame. */
+    /**
+     * This item's answer to a click on a frame block beside {@code frame}, a complete frame:
+     * {@code SUCCESS_SERVER} when it did something, so the server swings the arm for a client that
+     * holds a heart of the sea and predicts nothing, else {@code CONSUME}, which swings for no one.
+     */
     protected abstract InteractionResult onFrame(ServerLevel level, ServerPlayer player,
             ItemStack stack, PortalFrame frame);
 

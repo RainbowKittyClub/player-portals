@@ -39,7 +39,7 @@ public final class AdminCatalystItem extends CatalystItem {
             attune(stack, frame);
             PortalEffects.attuned(level, frame);
             say(player, "admin.destination_set", describe(frame));
-            return InteractionResult.SUCCESS;
+            return InteractionResult.SUCCESS_SERVER;
         }
         PortalFrame destination = stack.get(CatalystComponents.ATTUNED);
         if (destination == null) {
@@ -66,6 +66,6 @@ public final class AdminCatalystItem extends CatalystItem {
             return InteractionResult.CONSUME;
         }
         say(player, "admin.linked", describe(destination));
-        return InteractionResult.SUCCESS;
+        return InteractionResult.SUCCESS_SERVER;
     }
 }

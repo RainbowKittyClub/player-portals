@@ -1,0 +1,9 @@
+{
+  "match": {
+    "items": "minecraft:infested_deepslate",
+    "components": {
+      "minecraft:item_model": "playerportals:void_infused_deepslate"
+    }
+  },
+  "luminance": 10
+}
