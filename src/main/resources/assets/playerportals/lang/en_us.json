@@ -30,6 +30,5 @@
   "playerportals.portal.broken": "The other side of this portal is gone.",
   "playerportals.portal.too_small": "This portal is too small for you.",
   "playerportals.portal.cannot_travel": "This portal cannot take you there.",
-  "playerportals.break.no_permission": "You may not break a portal.",
-  "item.playerportals.puddle": "Puddle"
+  "playerportals.break.no_permission": "You may not break a portal."
 }
