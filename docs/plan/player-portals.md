@@ -143,13 +143,26 @@ the face 100 ticks as a trail that goes nowhere, falls as one that does to the f
 collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and lands as a
 the drip; a drop over nothing fades in the air. The drop hangs 0.08 out from the face and rests
 0.14 above the floor, being a quarter-block quad that faces the camera, which the floor would
-otherwise swallow half of. The puddle it leaves is a row of five to eight of the same dots a
-twentieth of a block apart along the face the drop hung from, overlapping into a bar about four
-times as long as wide, standing 28/(0.2..1.0) ticks as a tear's splash does. Each dot faces the
-camera, but the row's line is fixed in the world, so it reads as a bar from anywhere. No vanilla
-particle can be stretched from the server (only `dust` takes a size, and a uniform one), and a
-display entity, item or text, is lit as an entity where a particle is always full bright, which
-a shader client makes plain; both were tried as puddles and set aside. The warp a player hears on arriving is the mod's own
+otherwise swallow half of. The puddle it leaves is vanilla's own landing sprite,
+`drip_land` of the `particles` atlas, tinted `#008888` as the one glyph of a text display. 26.1's
+object text component (`Component.object(new AtlasSprite(atlas, sprite))`, `ObjectContents`)
+puts an atlas sprite in text, `AtlasGlyphProvider` draws it as an 8-pixel glyph in the text's
+colour, and the display gives it what no particle has from the server: a fixed orientation
+(billboard fixed, pitched flat, yawed along the face the drop hung from) and a scale, 1 to 2 at
+random, so the bar, four pixels of the eight, is 0.1 to 0.2 block long, as in the tear's own 0.2
+to 0.4 quad. `DisplayRenderer` draws a one-glyph line with the glyph box from 3 pixels left of the
+entity to 5 right and 2 above to 10 (its `1 - width/2` and `-height` offsets at 0.025 a pixel,
+the glyph's top one pixel over its baseline), and the bar is the box's fourth row, so the
+translation moves the bar's centre, a pixel right and 6.5 up, onto the entity, which sits 0.01
+above the floor with the bar's near edge 0.01 off the face. Full bright, no background, no shadow,
+pack watchers only (visibility predicate), one non-ticking `ChunkAttachment` holder per puddle,
+dried when the block's next drop forms 2 to 6 s on, as a tear's splash lasts, or the block goes.
+Before this (same day) the puddle was a row of five to eight trail dots a twentieth of a block
+apart, each facing the camera along a line fixed in the world, because no particle can be
+stretched from the server (only `dust` takes a size, and a uniform one); an item display of a bar
+sprite was tried before that and set aside as an item is lit and shaded as a model, which a shader
+client makes plain. The user found the sprite component and that it draws as wanted on their
+client. The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
 and faded over its last 0.35 s to mono OGG by ffmpeg; the source stays in `media/sounds/`),
 through Polymer's sound-event overlay, so a client without the pack hears vanilla's portal
