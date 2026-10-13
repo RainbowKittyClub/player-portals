@@ -144,7 +144,7 @@ collision below, at most 16 down, in the ticks a gravity of 0.01 would take, and
 the drip; a drop over nothing fades in the air. The drop hangs 0.08 out from the face and rests
 0.14 above the floor, being a quarter-block quad that faces the camera, which the floor would
 otherwise swallow half of. The puddle it leaves is vanilla's own landing sprite,
-`drip_land` of the `particles` atlas, tinted `#008888` as the one glyph of a text display. 26.1's
+`drip_land` of the `particles` atlas, tinted for `#008888` as the one glyph of a text display. 26.1's
 object text component (`Component.object(new AtlasSprite(atlas, sprite))`, `ObjectContents`)
 puts an atlas sprite in text, `AtlasGlyphProvider` draws it as an 8-pixel glyph in the text's
 colour, and the display gives it what no particle has from the server: a colour of its own and a
@@ -160,7 +160,13 @@ the bar reaches the floor from any angle. Brightness override 15/15, which packs
 very value `TrailParticle.getLightCoords` returns for the drop (TrailParticle.java:60), so in
 vanilla the two are lit alike; on the user's shader client the puddle still reads darker than the
 drop, since the pack lights entity text its own way and leaves particles be, and nothing sent
-from the server changes that. No background, no shadow,
+from the server changes that. What did differ on every client was what the tint fell on: the
+trail's sprite `generic_0` is one white pixel and shows its tint as given, where `drip_land`'s
+bar is grey 213 with one white highlight pixel and shows 213/255 of its tint, so one `#008888`
+gave a drop at 136 of 255 and a puddle body at 114. Both now tint for 125, halfway between
+(user, 2026-10-13): the drop `#007D7D`, the puddle `#009696`, whose body renders 125.3 and
+highlight 150; the trail's own random ±12.5 % per channel (TrailParticle.java:29) still plays
+over the drop. No background, no shadow,
 pack watchers only (visibility predicate), one non-ticking `ChunkAttachment` holder per puddle,
 dried when the block's next drop forms 2 to 6 s on, as a tear's splash lasts, or the block goes.
 Before this (same day) the puddle was a row of five to eight trail dots a twentieth of a block
@@ -432,7 +438,7 @@ dev server, and `lintAll` is clean.
 
 `scripts/loadtest/player-portals.js`, 52 legs after the frame-block and framework reworks, all
 PASS in about 2 min 30 s against a fresh dev server, among them two puddle legs (one `text_display`
-per landing with the `drip_land` sprite in `#008888`, centre billboard, brightness 15728880 and
+per landing with the `drip_land` sprite in `#009696`, centre billboard, brightness 15728880 and
 background 0 read off the metadata, under the drop with its bar 0.01 clear of the floor, paired
 with its drip sound; none for a bot without the pack, never more at once than frame
 blocks standing, each gone within 7 s), one `item_display` per interior

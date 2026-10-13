@@ -59,7 +59,12 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     private static final int LIGHT = 10;
     private static final BlockState FALLBACK = Blocks.CRYING_OBSIDIAN.defaultBlockState();
-    private static final int TEAR = 0x008888;
+    // The tear's colour is #008888, rendered at 125 of 255 by drop and puddle alike: the trail's
+    // sprite is one white pixel, so the drop shows its tint as given, where the landing sprite's
+    // bar is grey 213 (with one white highlight) and shows 213/255 of its tint. Each is tinted
+    // for 125, halfway between where #008888 put the two (136 and 114).
+    private static final int TEAR = 0x007D7D;
+    private static final int PUDDLE_TINT = 0x009696;
     // Ticks between a block's tries at a drop: 2 to 6 seconds, a third of which find a bare face.
     private static final int DRIP_DELAY_MIN = 40;
     private static final int DRIP_DELAY_SPAN = 80;
@@ -76,7 +81,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     // left of its position to five right, and from two above to ten, a pixel being 0.025 block;
     // the bar is the box's fourth row, so its centre lies a pixel right and six and a half up.
     private static final Component PUDDLE = Component.object(new AtlasSprite(AtlasIds.PARTICLES,
-            Identifier.withDefaultNamespace("drip_land"))).withColor(TEAR);
+            Identifier.withDefaultNamespace("drip_land"))).withColor(PUDDLE_TINT);
     private static final float TEXT_PIXEL = 0.025F;
     private static final Vector3f PUDDLE_BAR_CENTRE = new Vector3f(1.0F, 6.5F, 0.0F)
             .mul(TEXT_PIXEL);
