@@ -147,14 +147,20 @@ otherwise swallow half of. The puddle it leaves is vanilla's own landing sprite,
 `drip_land` of the `particles` atlas, tinted `#008888` as the one glyph of a text display. 26.1's
 object text component (`Component.object(new AtlasSprite(atlas, sprite))`, `ObjectContents`)
 puts an atlas sprite in text, `AtlasGlyphProvider` draws it as an 8-pixel glyph in the text's
-colour, and the display gives it what no particle has from the server: a fixed orientation
-(billboard fixed, pitched flat, yawed along the face the drop hung from) and a scale, 1 to 2 at
-random, so the bar, four pixels of the eight, is 0.1 to 0.2 block long, as in the tear's own 0.2
-to 0.4 quad. `DisplayRenderer` draws a one-glyph line with the glyph box from 3 pixels left of the
-entity to 5 right and 2 above to 10 (its `1 - width/2` and `-height` offsets at 0.025 a pixel,
-the glyph's top one pixel over its baseline), and the bar is the box's fourth row, so the
-translation moves the bar's centre, a pixel right and 6.5 up, onto the entity, which sits 0.01
-above the floor with the bar's near edge 0.01 off the face. Full bright, no background, no shadow,
+colour, and the display gives it what no particle has from the server: a colour of its own and a
+scale, 1 to 2 at random, so the bar, four pixels of the eight, is 0.1 to 0.2 block long, as in the
+tear's own 0.2 to 0.4 quad. It is a centre billboard like the tear's own particle (a flat sheet
+laid along the drop's face was tried first and turned down the same day). `DisplayRenderer` draws
+a one-glyph line with the glyph box from 3 pixels left of the entity to 5 right and 2 above to 10
+(its `1 - width/2` and `-height` offsets at 0.025 a pixel, the glyph's top one pixel over its
+baseline), and the bar is the box's fourth row, so the translation, applied after the billboard's
+turn, moves the bar's centre, a pixel right and 6.5 up, onto the entity whichever way it faces;
+the entity sits under the drop, 0.01 plus half the bar's thickness above the floor, so no edge of
+the bar reaches the floor from any angle. Brightness override 15/15, which packs to 15728880, the
+very value `TrailParticle.getLightCoords` returns for the drop (TrailParticle.java:60), so in
+vanilla the two are lit alike; on the user's shader client the puddle still reads darker than the
+drop, since the pack lights entity text its own way and leaves particles be, and nothing sent
+from the server changes that. No background, no shadow,
 pack watchers only (visibility predicate), one non-ticking `ChunkAttachment` holder per puddle,
 dried when the block's next drop forms 2 to 6 s on, as a tear's splash lasts, or the block goes.
 Before this (same day) the puddle was a row of five to eight trail dots a twentieth of a block

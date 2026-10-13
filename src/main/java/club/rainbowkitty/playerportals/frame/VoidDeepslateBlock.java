@@ -8,7 +8,6 @@ import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
-import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 
@@ -52,9 +51,10 @@ import net.minecraft.world.phys.shapes.VoxelShape;
  * drop is vanilla's {@code trail}, which does, living an obsidian tear's life: it hangs on the
  * face five seconds, falls to whatever floor is below at a tear's pace, and lands with a soft
  * drip that crying obsidian's never make, leaving the puddle a tear leaves. That is vanilla's own
- * landing sprite, which no particle could show in this colour or keep flat, as the one glyph of a
- * text display: a sprite in text takes the text's colour, and the display lays it on the floor
- * along the face the drop hung from, where it stays until the block's next drop forms.
+ * landing sprite, which no particle could show in this colour, as the one glyph of a text
+ * display: a sprite in text takes the text's colour, and the display turns it to the camera as
+ * the tear's own is turned, just above the floor where the drop fell, until the block's next drop
+ * forms.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     private static final int LIGHT = 10;
@@ -81,12 +81,12 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final Vector3f PUDDLE_BAR_CENTRE = new Vector3f(1.0F, 6.5F, 0.0F)
             .mul(TEXT_PIXEL);
     // The tear's own quad is 0.2 to 0.4 block, which is the sprite at one to two text pixels per
-    // pixel: a bar 0.1 to 0.2 long. It lies a little above the floor, and its near edge a little
-    // off the face the drop hung from.
+    // pixel: a bar 0.1 to 0.2 long. The bar is centred on the entity, so however the billboard
+    // turns no edge of it reaches further below the entity than half the bar's thickness; the
+    // entity sits that and this much above the floor.
     private static final float PUDDLE_SCALE_MIN = 1.0F;
     private static final float PUDDLE_SCALE_SPAN = 1.0F;
     private static final double PUDDLE_LIFT = 0.01;
-    private static final double PUDDLE_GAP = 0.01;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
@@ -209,7 +209,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 pos.getZ() + (face.getStepZ() == 0 ? random.nextDouble()
                         : 0.5 + face.getStepZ() * out));
         send(level, from, new TrailParticleOption(from, TEAR, HANG_TICKS));
-        return Drop.hanging(from, floorBelow(level, from), face);
+        return Drop.hanging(from, floorBelow(level, from));
     }
 
     // The top of the first block with collision under `from`, within reach, else null.
@@ -242,18 +242,17 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
      * @param landing the floor it falls to, or the air {@link #MAX_FALL} below when there is none
      * @param lands whether there was a floor
      * @param falling whether it has let go
-     * @param face the face it hangs from
      */
-    private record Drop(Vec3 from, Vec3 landing, boolean lands, boolean falling, Direction face) {
-        // A drop that has just formed at `from` on `face`, over `floor` if any.
-        static Drop hanging(Vec3 from, @Nullable Vec3 floor, Direction face) {
+    private record Drop(Vec3 from, Vec3 landing, boolean lands, boolean falling) {
+        // A drop that has just formed at `from`, over `floor` if any.
+        static Drop hanging(Vec3 from, @Nullable Vec3 floor) {
             return new Drop(from, floor != null ? floor : from.subtract(0.0, MAX_FALL, 0.0),
-                    floor != null, false, face);
+                    floor != null, false);
         }
 
         // The same drop, let go.
         Drop fall() {
-            return new Drop(from, landing, lands, true, face);
+            return new Drop(from, landing, lands, true);
         }
 
         // Where the falling dot comes to rest: its clearance above the floor.
@@ -261,15 +260,10 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             return landing.add(0.0, DROP_CLEARANCE, 0.0);
         }
 
-        // Where a puddle `across` wide lies: on the floor, and against the face the drop hung
-        // from, which the drop itself kept a little way off.
-        Vec3 puddleAt(double across) {
-            Vec3 at = landing.add(0.0, PUDDLE_LIFT, 0.0);
-            if (face.getAxis().isHorizontal()) {
-                double back = HANG_OUT - PUDDLE_GAP - across / 2.0;
-                at = at.subtract(face.getStepX() * back, 0.0, face.getStepZ() * back);
-            }
-            return at;
+        // Where the centre of a puddle whose bar is `thickness` thick sits: over the floor where
+        // the drop fell, high enough that the bar's lower edge clears it.
+        Vec3 puddleAt(double thickness) {
+            return landing.add(0.0, PUDDLE_LIFT + thickness / 2.0, 0.0);
         }
 
         // How long the fall takes under a tear's gravity, at least one tick.
@@ -279,26 +273,21 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // The puddle a drop leaves: the landing sprite lying flat on the floor, its bar along the
-    // face the drop hung from (either way for one from under the block), a tear's random size,
-    // shown to players with the pack.
+    // The puddle a drop leaves: the landing sprite turned to the camera as the tear's own is,
+    // just above the floor where the drop fell, a tear's random size, shown to players with the
+    // pack.
     private static ElementHolder puddle(ServerLevel level, Drop drop, RandomSource random) {
         float scale = PUDDLE_SCALE_MIN + random.nextFloat() * PUDDLE_SCALE_SPAN;
-        Direction.Axis along = drop.face().getAxis() == Direction.Axis.X
-                ? Direction.Axis.Z : Direction.Axis.X;
-        float yaw = along == Direction.Axis.X ? 0.0F : (float) Math.toRadians(90.0);
-        // The pitch lays the upright glyph flat, face up; the yaw turns its bar along the face.
-        Quaternionf turn = new Quaternionf().rotationY(yaw).rotateX((float) Math.toRadians(-90.0));
         TextDisplayElement sheet = new TextDisplayElement(PUDDLE);
         sheet.setBackground(0);
         sheet.setShadow(false);
-        sheet.setBillboardMode(Display.BillboardConstraints.FIXED);
+        sheet.setBillboardMode(Display.BillboardConstraints.CENTER);
         // The drop's trail particle is always full bright; the puddle matches it.
         sheet.setBrightness(Brightness.FULL_BRIGHT);
         sheet.setScale(new Vector3f(scale));
-        sheet.setLeftRotation(turn);
-        // Brings the bar's centre, drawn off the entity's position, onto it.
-        sheet.setTranslation(turn.transform(new Vector3f(PUDDLE_BAR_CENTRE).mul(scale)).negate());
+        // Brings the bar's centre, drawn off the entity's position, onto it. The translation is
+        // applied after the billboard's turn, so it holds whichever way the sprite faces.
+        sheet.setTranslation(new Vector3f(PUDDLE_BAR_CENTRE).mul(-scale));
         sheet.setVisibilityPredicate(
                 player -> PolymerResourcePackUtils.hasMainPack(player.connection));
         ElementHolder holder = new ElementHolder();
