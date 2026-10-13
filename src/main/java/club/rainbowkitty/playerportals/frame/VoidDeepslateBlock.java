@@ -50,12 +50,12 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import club.rainbowkitty.kalic0re.common.mining.VanillaCreativeBreak;
 
 /**
- * The block a frame is built from: deepslate with an ender pearl in it, glowing like crying
- * obsidian. A client with the resource pack sees its own texture on a pool state that sounds as
- * deepslate but gives no light (see {@link FrameBlocks}), so Polymer resends it the server's light
- * whenever the light around the block changes; it holds the item as that state's own (see
- * {@link VoidDeepslateItem}). Any other client sees and holds crying obsidian, which has the same
- * light.
+ * The block a frame is built from: deepslate with an ender pearl in it, glowing a little dimmer
+ * than crying obsidian. A client with the resource pack sees its own texture on a pool state that
+ * sounds as deepslate but gives no light (see {@link FrameBlocks}), and holds the item as that
+ * state's own (see {@link VoidDeepslateItem}). Any other client sees and holds crying obsidian,
+ * three levels brighter. Neither client's own light is the server's, so Polymer resends the
+ * server's light to both whenever the light around the block changes.
  *
  * <p>It weeps as crying obsidian does. A client without the pack gets that from crying obsidian
  * itself; one with the pack is shown a teal tear now and then from an exposed face, by a block
@@ -69,7 +69,8 @@ import club.rainbowkitty.kalic0re.common.mining.VanillaCreativeBreak;
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock,
         VanillaCreativeBreak {
-    private static final int LIGHT = 10;
+    // Three levels under crying obsidian's 10.
+    private static final int LIGHT = 7;
     private static final BlockState FALLBACK = Blocks.CRYING_OBSIDIAN.defaultBlockState();
     // The tear's three sprites are vanilla's own: a dot hanging, the dot falling and the bar it
     // leaves, each grey 213 with one white highlight. This tint puts the grey at 125 of 255.
@@ -124,7 +125,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         this.textured = textured == null ? FALLBACK : textured;
     }
 
-    /** Deepslate's properties under {@code key}, glowing like crying obsidian. */
+    /** Deepslate's properties under {@code key}, glowing a little dimmer than crying obsidian. */
     public static Properties properties(ResourceKey<Block> key) {
         return BlockBehaviour.Properties.of().mapColor(MapColor.DEEPSLATE)
                 .requiresCorrectToolForDrops().strength(3.0F, 6.0F).sound(SoundType.DEEPSLATE)
@@ -148,8 +149,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     }
 
     // Polymer resends the server's light to clients near a block whose client state gives a
-    // different light. It asks for the state of a client it knows nothing about, which here is
-    // crying obsidian, as bright as this, so it has to be told; the pack's state gives none.
+    // different light, as both of this block's do. It finds such a block by the state of a client
+    // it knows nothing about, crying obsidian here; this says so whatever that state's light.
     @Override
     public boolean forceLightUpdates(BlockState state) {
         return true;
