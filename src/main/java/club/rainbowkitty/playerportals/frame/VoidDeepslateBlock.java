@@ -30,6 +30,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Brightness;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -141,6 +142,16 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     @Override
     public boolean forceLightUpdates(BlockState state) {
         return true;
+    }
+
+    // Polymer mines a block of its own on the server, under mining fatigue so the client never
+    // finishes first, and sends the breaker the break effect the client then never plays. A
+    // creative client breaks at once and plays that effect itself, so for a creative player
+    // Polymer is kept out, or the breaker hears the block break twice.
+    @Override
+    public boolean handleMiningOnServer(ItemStack tool, BlockState state, BlockPos pos,
+            ServerPlayer player) {
+        return !player.isCreative();
     }
 
     // A block gone mid-drop takes its drop or puddle with it, and leaves none for the next block

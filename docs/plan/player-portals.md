@@ -232,6 +232,25 @@ the Enderscape Polymer patch (decompiled):
   its prediction relit the area and the server's light never changed, so nothing is resent until
   the light there next changes. Light sent at the refusal would be undone when the client applies
   the restored block on the server's acknowledgement; a fix needs a resend a tick later.
+  Shaders that light by voxel floodfill ignore all of this near the player: the user's Distant
+  Voxels takes nearby block light wholly from its own table of light-emitting block ids
+  (`lib/lighting/mainLighting.glsl:561`, `lib/misc/voxelization.glsl`, crying obsidian's id 10476
+  giving light 26), and lists infested deepslate with plain deepslate. The block can glow there
+  only through an entry in the shader pack's `block.properties` for
+  `minecraft:infested_deepslate:axis=x`; nothing the server sends reaches it. Without such a
+  shader, or with shaders off, the resent vanilla light is what lights the block. The user's copy
+  was patched so (2026-10-13; original kept as `_backups/Distant Voxels v0.1.0.zip.orig-20261013`
+  in the workspace): `block.10110=infested_deepslate:axis=x`, the other two axes left on 10108,
+  so the surface is deepslate's (`terrainMaterials.glsl` sends 10108 to 10111 there; only
+  `mat % 4 == 1` means anything, non-solid); `voxelization.glsl` gives 10110 light 29, the soul
+  fire colour; `shadowChecks.glsl` lists it as emissive, with the soul torch's colour
+  (0.15, 0.85, 0.85) and crying obsidian's brightness (`BRIGHTNESS_CRYING`, 12), both lights being
+  10. Another voxel shader needs its own entry.
+- The break sound (user report, 2026-10-13). Polymer mines its blocks on the server under mining
+  fatigue, so a client never finishes first, and sends the breaker the break event (BlockMixin:
+  `spawnDestroyParticles`) the client then never plays; it does so for any game mode. A creative
+  client breaks at once and plays that event itself, so the breaker heard the block break twice.
+  `handleMiningOnServer` now answers false for a creative player, leaving that break to vanilla.
 
 The warp a player hears on arriving is the mod's own
 `portal_jump` (the user's recording, trimmed to 1.6 s, high-passed at 220 Hz against its rumble
