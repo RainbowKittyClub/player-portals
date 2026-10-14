@@ -102,8 +102,10 @@ nether portal texture tinted `#0a4646` as an item model to a client with the pac
 vanilla client's own warp overlay and ambient portal sounds go with the real nether portal
 state; the break effect stays a nether portal's.
 
-**Links and lit frames are saved apart, so they are reconciled on start.** The framework keeps
-lit frames in its own file and this mod keeps destinations in `playerportals:links`; a crash
+**Links and lit frames are saved apart, so they are reconciled on start.** The framework keeps lit
+frames in its own file and this mod keeps destinations in `playerportals:links`, both in the
+server's own storage (`<world>/data/playerportals/`), which exists before any level: a chunk loaded
+from a level's constructor, as bannerpoint loads its saved banners' chunks, reaches both. A crash
 between the two saves, or a command clearing blocks behind the removal hook, can leave one
 naming what the other lost. `PortalLinks.reconcile` runs at `SERVER_STARTED`: a link from or to
 an unlit frame goes, and a lit frame no link reaches fades. Linking also answers false when the
@@ -154,7 +156,8 @@ As built (2026-10-13), each drop is one text display that changes in place
 the grey renders at 125 of 255, the brightness the user had matched the drop and puddle at. Scale
 1 to 2 at random, held through the drop's life, so the dot is 0.05 to 0.1 across and the bar 0.1
 to 0.2 long, as in the tear's own 0.2 to 0.4 quad; centre billboard; brightness 15/15; no
-background or shadow; pack watchers only. `DisplayRenderer` draws a one-glyph line with the glyph
+background or shadow; pack players only, the only ones its holder takes as watchers, so no
+update reaches anyone else. `DisplayRenderer` draws a one-glyph line with the glyph
 box from 3 pixels left of the entity to 5 right and 2 above to 10 (its `1 - width/2` and `-height`
 offsets at 0.025 a pixel), so each mark's centre lies a pixel right and 9 (hanging dot), 8
 (falling dot) or 6.5 (bar) up; the translation, applied after the billboard's turn, moves it onto
@@ -171,11 +174,12 @@ thickness. The holder never ticks; each step calls `holder.tick()` once to send 
 data before the move. It is a `BlockBoundAttachment` on the frame block (its constructor, which
 Polymer marks internal, since the public factory serves only blocks that keep a holder of their
 own), so Polymer takes the display away on any change to that block, a strict `/setblock` that
-skips `affectNeighborsAfterRemoval` included (WorldChunkMixin.java:87-97); a drop whose display
-is gone, with its block or its chunk, is forgotten at that spot's next tick. Drops are kept per
-dimension, so frame blocks at the same coordinates in two no longer share one, and forgotten at
-server stop. Known: a player who starts watching mid-fall is spawned the dot where it is going
-and sees it sit there until it lands, as Polymer spawns an element at its last synced position. The cost over the particles: up to one display per frame
+skips `affectNeighborsAfterRemoval` included (WorldChunkMixin.java:87-97), or with its chunk; the
+holder's `onAttachmentRemoved` then takes it from every watcher and forgets the drop. Drops are
+kept per dimension, so frame blocks at the same coordinates in two no longer share one, and
+forgotten at server stop. Known: a player who starts watching mid-fall is spawned the dot where it
+is going and sees it sit there until it lands, as Polymer spawns an element at its last synced
+position. The cost over the particles: up to one display per frame
 block at a time, and its packets reach every pack player with the chunk loaded rather than those
 within 32 blocks, about 0.5 KB/s per nearby player for a 3 by 4 portal.
 
