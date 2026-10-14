@@ -1,7 +1,6 @@
 package club.rainbowkitty.playerportals.portal;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.server.level.ServerLevel;
@@ -37,26 +36,15 @@ public final class PortalEffects {
         play(level, frame, ParticleTypes.REVERSE_PORTAL, SoundEvents.BEACON_DEACTIVATE, 0.8F);
     }
 
+    // A burst over the whole interior, half its extent each way in the plane, and the sound.
     private static void play(ServerLevel level, PortalFrame frame, SimpleParticleType particle,
             SoundEvent sound, float pitch) {
-        Vec3 centre = Vec3.atLowerCornerOf(frame.origin())
-                .add(Vec3.atLowerCornerOf(frame.at(frame.width() - 1, frame.height() - 1)))
-                .scale(0.5).add(0.5, 0.5, 0.5);
+        Vec3 centre = frame.centre();
+        Vec3 spread = frame.plane().toWorld(
+                new Vec3(frame.width() / 2.0, frame.height() / 2.0, ACROSS_SPREAD));
         level.sendParticles(particle, centre.x, centre.y, centre.z,
                 Math.min(MAX_PARTICLES, PARTICLES_PER_BLOCK * frame.width() * frame.height()),
-                spread(frame, Direction.Axis.X), spread(frame, Direction.Axis.Y),
-                spread(frame, Direction.Axis.Z), 0.2);
+                spread.x, spread.y, spread.z, 0.2);
         level.playSound(null, BlockPos.containing(centre), sound, SoundSource.BLOCKS, 1.0F, pitch);
-    }
-
-    // Half the frame's extent on `axis`, or a sliver across the plane.
-    private static double spread(PortalFrame frame, Direction.Axis axis) {
-        if (axis == frame.plane().along()) {
-            return frame.width() / 2.0;
-        }
-        if (axis == frame.plane().up()) {
-            return frame.height() / 2.0;
-        }
-        return ACROSS_SPREAD;
     }
 }
