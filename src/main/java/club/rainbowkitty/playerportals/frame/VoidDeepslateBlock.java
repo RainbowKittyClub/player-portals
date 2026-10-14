@@ -47,8 +47,6 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 
-import club.rainbowkitty.kalic0re.common.mining.VanillaCreativeBreak;
-
 /**
  * The block a frame is built from: deepslate with an ender pearl in it, glowing a little dimmer
  * than crying obsidian. A client with the resource pack sees its own texture on a pool state that
@@ -67,8 +65,7 @@ import club.rainbowkitty.kalic0re.common.mining.VanillaCreativeBreak;
  * own, and lies there as the puddle a tear leaves, with a soft drip that crying obsidian's never
  * make, until the block's next try at a drop.
  */
-public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock,
-        VanillaCreativeBreak {
+public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     // Three levels under crying obsidian's 10.
     private static final int LIGHT = 7;
     private static final BlockState FALLBACK = Blocks.CRYING_OBSIDIAN.defaultBlockState();
