@@ -270,11 +270,10 @@ the Enderscape Polymer patch (decompiled):
 - The break sound (user report, 2026-10-13). Polymer mines its blocks on the server under mining
   fatigue, so a client never finishes first, and sends the breaker the break event (BlockMixin:
   `spawnDestroyParticles`) the client then never plays; it does so for any game mode. A creative
-  client breaks at once and plays that event itself, so the breaker heard the block break twice.
-  `handleMiningOnServer` now answers false for a creative player, leaving that break to vanilla.
-  The answer moved into kalic0re 0.27.0 as `common/mining` `VanillaCreativeBreak` the same day,
-  which the frame block and the framework's portal block both implement and `sensible-storage`'s
-  planked blocks take too; this mod shades `mining` with `portal`.
+  client breaks at once and plays that event itself, so the breaker hears the block break twice.
+  The fix belongs in Polymer itself: the frame block and the framework's portal block keep
+  Polymer's default `handleMiningOnServer`, so on a Polymer without that fix a creative break of
+  either is still heard twice.
 
 **The frame block's light (user request, 2026-10-13).** Void-infused deepslate gives light 7,
 three under crying obsidian's 10. A client without the pack still sees crying obsidian, now three
@@ -577,7 +576,7 @@ north–south frame, the sneak-click destination, a shared ring column breaking 
 the beacon sound heard, and a flat portal's interior shattering as nether portal blocks. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
 mod, its 335 findings all sit in `rk-tweaks` from before. Not covered by a leg: the "too
 small" refusal, the rider cooldown, and a dead partner clearing when its unloaded chunk loads
-(both ends are forceloaded in every leg). No remote exists yet for a push.
+(both ends are forceloaded in every leg). The creative-break legs, no break event to a creative breaker of a frame block or a portal's interior, pass only on a Polymer that leaves that break to the client; the mod no longer does. No remote exists yet for a push.
 
 ## Open decisions
 
