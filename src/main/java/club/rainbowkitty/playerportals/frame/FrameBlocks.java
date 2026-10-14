@@ -38,7 +38,7 @@ public final class FrameBlocks {
     private static VoidDeepslateBlock register(String path) {
         ResourceKey<Block> key = ResourceKey.create(Registries.BLOCK, PlayerPortals.id(path));
         VoidDeepslateBlock block = Registry.register(BuiltInRegistries.BLOCK, key,
-                new VoidDeepslateBlock(VoidDeepslateBlock.properties(key),
+                new VoidDeepslateBlock(key,
                         textured(PolymerBlockModel.of(PlayerPortals.id("block/" + path)))));
         ItemRegistration.register(PlayerPortals.MOD_ID, path, itemKey -> ItemNames.named(itemKey,
                 PlayerPortals.text().of("block." + PlayerPortals.MOD_ID + "." + path),

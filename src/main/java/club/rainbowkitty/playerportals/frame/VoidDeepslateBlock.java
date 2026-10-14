@@ -17,6 +17,7 @@ import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.AtlasIds;
 import net.minecraft.network.chat.Component;
@@ -27,6 +28,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Brightness;
@@ -50,29 +52,17 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 
 /**
- * The block a frame is built from: deepslate with an ender pearl in it, glowing a little dimmer
- * than crying obsidian. A client with the resource pack sees its own texture on a pool state that
- * sounds as deepslate but gives no light (see {@link FrameBlocks}), and holds the item as that
- * state's own (see {@link VoidDeepslateItem}). Any other client sees and holds crying obsidian,
- * three levels brighter. Neither client's own light is the server's, so Polymer resends the
- * server's light to both whenever the light around the block changes.
- *
- * <p>It weeps as crying obsidian does. A client without the pack gets that from crying obsidian
- * itself; one with the pack is shown a teal tear now and then from an exposed face, by a block
- * tick each block keeps scheduling for itself (random ticks start it on blocks placed before this
- * was so), which costs nothing between drops. No vanilla drip particle takes a colour, but a
- * sprite in text takes the text's, so each tear is one text display showing vanilla's three drip
- * sprites in turn, turned to the camera as the tear's particles are. It hangs on the face five
- * seconds, falls at a tear's pace to whatever floor is below, a glide the client animates on its
- * own, and lies there as the puddle a tear leaves, with a soft drip that crying obsidian's never
- * make, until the block's next try at a drop.
+ * The block a frame is built from: deepslate with an ender pearl in it, light 7. A client with
+ * the resource pack sees its texture on a pool state ({@link FrameBlocks}) and holds that state's
+ * item ({@link VoidDeepslateItem}); any other sees and holds crying obsidian. It weeps as crying
+ * obsidian does: a pack client is shown a teal tear now and then, one text display per drop.
+ * {@code docs/plan/player-portals.md} has the reasoning and the measurements.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     // Three levels under crying obsidian's 10.
     private static final int LIGHT = 7;
     private static final BlockState FALLBACK = Blocks.CRYING_OBSIDIAN.defaultBlockState();
-    // The tear's three sprites are vanilla's own: a dot hanging, the dot falling and the bar it
-    // leaves, each grey 213 with one white highlight. This tint puts the grey at 125 of 255.
+    // Puts the grey 213 of vanilla's three drip sprites at 125 of 255.
     private static final int TEAR = 0x009696;
     private static final Component HANG = tear("drip_hang");
     private static final Component FALL = tear("drip_fall");
@@ -85,13 +75,10 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final double FALL_GRAVITY = 0.01;
     // How far below where it hangs a drop looks for a floor.
     private static final int MAX_FALL = 16;
-    // The dot is at most a tenth of a block across, and hangs this far off the face, so however
-    // it turns to the camera it never cuts into the block.
+    // The widest dot is 0.1 across, so this far out no turn of its billboard cuts into the block.
     private static final double HANG_OUT = 0.08;
-    // A text display draws a one-glyph line with the glyph's box from three pixels left of its
-    // position to five right, and from two above to ten, a pixel being 0.025 block. Each mark
-    // lies a pixel right of the position and this far up: the hanging dot fills the sprite's top
-    // two rows, the falling one the next two, the puddle's bar the fourth.
+    // A one-glyph line's box spans x -3 to 5 and y 2 to 10 text pixels from the display; each mark
+    // sits a pixel right, centred on its sprite rows: 1-2 hanging, 2-3 falling, 4 the bar.
     private static final float TEXT_PIXEL = 0.025F;
     private static final Vector3f HANG_CENTRE = new Vector3f(1.0F, 9.0F, 0.0F).mul(TEXT_PIXEL);
     private static final Vector3f FALL_CENTRE = new Vector3f(1.0F, 8.0F, 0.0F).mul(TEXT_PIXEL);
@@ -99,14 +86,14 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             .mul(TEXT_PIXEL);
     private static final float DOT_HEIGHT = 2.0F * TEXT_PIXEL;
     private static final float BAR_HEIGHT = TEXT_PIXEL;
-    // The tear's own quad is 0.2 to 0.4 block, which is its sprite at one to two text pixels per
-    // pixel: a dot 0.05 to 0.1 across, a bar 0.1 to 0.2 long. Each mark is centred on the entity,
-    // so however the billboard turns no edge of it reaches further below the entity than half
-    // its height; on the floor the entity sits that and this much above it.
+    // Text pixels per sprite pixel, as the tear's own 0.2 to 0.4 block quad.
     private static final float SCALE_MIN = 1.0F;
     private static final float SCALE_SPAN = 1.0F;
+    // A centred mark reaches half its height below the display; this much more clears the floor.
     private static final double FLOOR_LIFT = 0.01;
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
+    private static final Holder<SoundEvent> DRIP_SOUND =
+            BuiltInRegistries.SOUND_EVENT.wrapAsHolder(SoundEvents.POINTED_DRIPSTONE_DRIP_WATER);
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
     // Each level's drops by block, until the block's next try at a drop or the display goes.
@@ -115,19 +102,13 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private final BlockState textured;
 
     /**
+     * @param key the block's id
      * @param textured the pool state the pack draws this block on, or null when the pool is
      *        spent, in which case every client sees the fallback
      */
-    public VoidDeepslateBlock(Properties properties, @Nullable BlockState textured) {
-        super(properties);
+    public VoidDeepslateBlock(ResourceKey<Block> key, @Nullable BlockState textured) {
+        super(properties(key));
         this.textured = textured == null ? FALLBACK : textured;
-    }
-
-    /** Deepslate's properties under {@code key}, glowing a little dimmer than crying obsidian. */
-    public static Properties properties(ResourceKey<Block> key) {
-        return BlockBehaviour.Properties.of().mapColor(MapColor.DEEPSLATE)
-                .requiresCorrectToolForDrops().strength(3.0F, 6.0F).sound(SoundType.DEEPSLATE)
-                .lightLevel(state -> LIGHT).randomTicks().setId(key);
     }
 
     /** The state a client with the pack is shown this block as. */
@@ -146,17 +127,14 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 ? textured : FALLBACK;
     }
 
-    // Polymer resends the server's light to clients near a block whose client state gives a
-    // different light, as both of this block's do. It finds such a block by the state of a client
-    // it knows nothing about, crying obsidian here; this says so whatever that state's light.
+    // Neither client state gives the server's light, and Polymer asks only the fallback's.
     @Override
     public boolean forceLightUpdates(BlockState state) {
         return true;
     }
 
-    // Polymer swings from the server after any click on a block of its own that did something,
-    // for clients that cannot predict it. Every client sees a vanilla block here and predicts its
-    // own clicks; the catalyst, held as an item that predicts nothing, asks for its swing itself.
+    // Every client predicts its clicks on the vanilla block it sees, so a server swing would
+    // double them; the catalyst asks for its own.
     @Override
     public boolean isPolymerBlockInteraction(BlockState state, ServerPlayer player,
             InteractionHand hand, ItemStack stack, ServerLevel level, BlockHitResult hit,
@@ -172,29 +150,27 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // Starts the drips of a block placed before they existed; a block already ticking keeps the
-    // tick it has.
+    // Starts the drips of a block placed before they existed; one already ticking keeps its tick.
     @Override
     protected void randomTick(BlockState state, ServerLevel level, BlockPos pos,
             RandomSource random) {
         scheduleDrip(level, pos, random);
     }
 
-    // Three ticks per drop: one hangs it on a face, the next lets it fall, the last lands it and
-    // schedules the block's next try, whose tick dries the puddle. A drop with no floor within
-    // reach, or falling into a liquid, is gone when it would have landed.
+    // Three ticks per drop: it hangs, falls, then lands and schedules the block's next try, which
+    // dries the puddle. A drop with no floor in reach, or over a liquid, is gone on landing.
     @Override
     protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
         Long2ObjectMap<Drop> drops = DROPS.computeIfAbsent(level.dimension(),
                 added -> new Long2ObjectOpenHashMap<>());
         long key = pos.asLong();
         Drop drop = drops.get(key);
-        if (drop != null && drop.phase() == Phase.HANGING) {
+        if (drop != null && drop.phase == Phase.HANGING) {
             level.scheduleTick(pos, this, drop.fall());
-        } else if (drop != null && drop.phase() == Phase.FALLING) {
-            if (drop.lands()) {
+        } else if (drop != null && drop.phase == Phase.FALLING) {
+            if (drop.lands) {
                 drop.settle();
-                drip(level, drop.landing(), random);
+                drip(level, drop.landing, random);
             } else {
                 drop.destroy();
             }
@@ -213,19 +189,21 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         }
     }
 
-    // One pending tick per block: a random tick landing on a block already ticking must not
-    // start a second chain.
-    private void scheduleDrip(ServerLevel level, BlockPos pos, RandomSource random) {
-        if (!level.getBlockTicks().hasScheduledTick(pos, this)) {
-            level.scheduleTick(pos, this, DRIP_DELAY_MIN + random.nextInt(DRIP_DELAY_SPAN));
-        }
+    // Deepslate's properties under key, glowing a little dimmer than crying obsidian.
+    private static Properties properties(ResourceKey<Block> key) {
+        return BlockBehaviour.Properties.of().mapColor(MapColor.DEEPSLATE)
+                .requiresCorrectToolForDrops().strength(3.0F, 6.0F).sound(SoundType.DEEPSLATE)
+                .lightLevel(state -> LIGHT).randomTicks().setId(key);
     }
 
-    // A drop forms on a random exposed face other than the top, as crying obsidian picks them, a
-    // tear's random size, and finds where it will come down: the first thing with a visual shape
-    // below, within reach, a fence's post rather than its taller collision, or a liquid's surface,
-    // in which it is lost. Null when the face drawn was covered or the top, or the spot drawn on
-    // it is not clear of collision.
+    // The block's next try at a drop; vanilla keeps one pending tick per block and position, so a
+    // random tick on a block already ticking starts no second chain.
+    private void scheduleDrip(ServerLevel level, BlockPos pos, RandomSource random) {
+        level.scheduleTick(pos, this, DRIP_DELAY_MIN + random.nextInt(DRIP_DELAY_SPAN));
+    }
+
+    // A drop on a random exposed face other than the top, at a spot clear of collision, landing on
+    // the first visual shape below or lost in a liquid; null when the face or spot drawn fails.
     private static @Nullable Drop hang(ServerLevel level, BlockPos pos, BlockState state,
             RandomSource random) {
         Direction face = Direction.getRandom(random);
@@ -236,63 +214,60 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         if (level.getBlockState(beside).isFaceSturdy(level, beside, face.getOpposite())) {
             return null;
         }
-        double out = 0.5 + HANG_OUT;
-        Vec3 from = new Vec3(
-                pos.getX() + (face.getStepX() == 0 ? random.nextDouble()
-                        : 0.5 + face.getStepX() * out),
-                pos.getY() + (face.getStepY() == 0 ? random.nextDouble()
-                        : 0.5 + face.getStepY() * out),
-                pos.getZ() + (face.getStepZ() == 0 ? random.nextDouble()
-                        : 0.5 + face.getStepZ() * out));
+        Vec3 from = new Vec3(pos.getX() + onFace(face.getStepX(), random),
+                pos.getY() + onFace(face.getStepY(), random),
+                pos.getZ() + onFace(face.getStepZ(), random));
         float scale = SCALE_MIN + random.nextFloat() * SCALE_SPAN;
         double size = DOT_HEIGHT * scale;
         if (!level.noBlockCollision(null, AABB.ofSize(from, size, size, size))) {
             return null;
         }
-        Vec3 reach = from.subtract(0.0, MAX_FALL, 0.0);
-        BlockHitResult floor = level.clip(new ClipContext(from, reach, ClipContext.Block.VISUAL,
-                ClipContext.Fluid.ANY, CollisionContext.empty()));
-        if (floor.getType() != HitResult.Type.BLOCK) {
-            return new Drop(level, pos, state, from, reach, false, scale);
-        }
+        // A missed clip ends at its target, MAX_FALL below.
+        BlockHitResult floor = level.clip(new ClipContext(from, from.subtract(0.0, MAX_FALL, 0.0),
+                ClipContext.Block.VISUAL, ClipContext.Fluid.ANY, CollisionContext.empty()));
+        boolean lands = floor.getType() == HitResult.Type.BLOCK
+                && level.getFluidState(floor.getBlockPos()).isEmpty();
         return new Drop(level, pos, state, from, new Vec3(from.x, floor.getLocation().y, from.z),
-                level.getFluidState(floor.getBlockPos()).isEmpty(), scale);
+                lands, scale);
+    }
+
+    // One coordinate of a drop's spot, within the block: anywhere across the face, or HANG_OUT
+    // off it along the face's own axis.
+    private static double onFace(int step, RandomSource random) {
+        return step == 0 ? random.nextDouble() : 0.5 + step * (0.5 + HANG_OUT);
     }
 
     // The soft drip of a drop landing at `at`, for players with the pack within earshot.
     private static void drip(ServerLevel level, Vec3 at, RandomSource random) {
-        ClientboundSoundPacket drip = new ClientboundSoundPacket(
-                BuiltInRegistries.SOUND_EVENT.wrapAsHolder(
-                        SoundEvents.POINTED_DRIPSTONE_DRIP_WATER),
-                SoundSource.BLOCKS, at.x, at.y, at.z, DRIP_VOLUME,
-                DRIP_PITCH + random.nextFloat() * 0.2F, random.nextLong());
+        float pitch = DRIP_PITCH + random.nextFloat() * 0.2F;
+        long seed = random.nextLong();
+        ClientboundSoundPacket packet = null;
         for (ServerPlayer player : level.players()) {
             if (player.distanceToSqr(at) <= DRIP_RANGE_SQUARED
                     && PolymerResourcePackUtils.hasMainPack(player.connection)) {
-                player.connection.send(drip);
+                if (packet == null) {
+                    packet = new ClientboundSoundPacket(DRIP_SOUND, SoundSource.BLOCKS, at.x, at.y,
+                            at.z, DRIP_VOLUME, pitch, seed);
+                }
+                player.connection.send(packet);
             }
         }
     }
 
+    // One of vanilla's drip sprites as text, in the tear's colour.
     private static Component tear(String sprite) {
         return Component.object(new AtlasSprite(AtlasIds.PARTICLES,
                 Identifier.withDefaultNamespace(sprite))).withColor(TEAR);
     }
 
-    /** Where a drop is in its life. */
+    // Where a drop is in its life.
     private enum Phase {
         HANGING,
         FALLING,
         LYING
     }
 
-    /**
-     * One block's drop: a text display that hangs at its face, falls to the floor below and lies
-     * there as a puddle, changing sprite at each step, for players with the pack. Its holder
-     * never ticks; each step sends its own changes, and the client glides the fall. The holder is
-     * bound to the block, so Polymer takes the display away whenever the block there changes,
-     * however it changes.
-     */
+    // One block's drop, a text display shown to pack players only: it hangs, falls and lies.
     private static final class Drop extends ElementHolder {
         private final TextDisplayElement sprite = new TextDisplayElement(HANG);
         private final ResourceKey<Level> dimension;
@@ -327,18 +302,6 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                     from, false);
         }
 
-        private Phase phase() {
-            return phase;
-        }
-
-        private boolean lands() {
-            return lands;
-        }
-
-        private Vec3 landing() {
-            return landing;
-        }
-
         // Pack players only, so no update of a display they never had reaches anyone else.
         @Override
         public boolean startWatching(ServerGamePacketListenerImpl player) {
@@ -359,12 +322,13 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         // Lets go: the client glides the falling dot to the floor over a tear's fall from this
         // height, and the ticks that takes are returned.
         private int fall() {
-            double height = Math.max(0.0, from.y - over(DOT_HEIGHT).y);
+            Vec3 rest = over(DOT_HEIGHT);
+            double height = Math.max(0.0, from.y - rest.y);
             int ticks = Math.max(1, (int) Math.round(Math.sqrt(2.0 * height / FALL_GRAVITY)));
             sprite.setText(FALL);
             centre(FALL_CENTRE);
             sprite.setTeleportDuration(ticks);
-            sprite.setOffset(over(DOT_HEIGHT).subtract(from));
+            sprite.setOffset(rest.subtract(from));
             tick();
             phase = Phase.FALLING;
             return ticks;
