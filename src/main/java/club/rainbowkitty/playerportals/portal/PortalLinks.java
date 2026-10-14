@@ -22,7 +22,7 @@ import club.rainbowkitty.kalic0re.common.portal.Portals;
 import club.rainbowkitty.playerportals.PlayerPortals;
 
 /**
- * Where each lit portal leads, saved with the overworld. A two-way pair is two links; a one-way
+ * Where each lit portal leads, saved with the server. A two-way pair is two links; a one-way
  * portal is one. A portal stays lit while any link enters or leaves it, so the far end of
  * one-way portals stays as a destination with no way out; one left without a link is faded
  * through the framework, which comes back here to drop its links in turn.
@@ -48,7 +48,7 @@ public final class PortalLinks extends SavedData {
 
     /** The server's links, created empty on first use. */
     public static PortalLinks of(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(TYPE);
+        return server.getDataStorage().computeIfAbsent(TYPE);
     }
 
     /** Registers the start-up sweep that brings links and lit frames back in step. */
