@@ -1,6 +1,7 @@
 package club.rainbowkitty.playerportals.portal;
 
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.jspecify.annotations.Nullable;
 
@@ -38,7 +39,7 @@ import club.rainbowkitty.playerportals.frame.FrameBlocks;
 /**
  * This mod's kind of portal: framed in void-infused deepslate, drawn as the tinted portal
  * material, leading wherever {@link PortalLinks} says. Each crossing re-reads the far end, never
- * more than once per entry, and tells a player in chat why it did not go.
+ * more than once per entry, and tells each player aboard in chat why it did not go.
  */
 public final class PlayerPortalKind implements PortalKind {
     private static final BlockState PLAIN = Blocks.NETHER_PORTAL.defaultBlockState()
@@ -76,15 +77,13 @@ public final class PlayerPortalKind implements PortalKind {
                         true, 1, 0.02F, 10));
     }
 
-    // The warp, at the player's own ear: the pack's sound, or vanilla's portal travel without it,
-    // which Polymer swaps in per player.
+    // The warp, at each player's own ear, riders included: the pack's sound, or vanilla's portal
+    // travel without it, which Polymer swaps in per player.
     @Override
     public void travelSound(Entity entity) {
-        if (entity instanceof ServerPlayer player) {
-            player.connection.send(new ClientboundSoundPacket(WARP, SoundSource.AMBIENT,
-                    player.getX(), player.getY(), player.getZ(), WARP_VOLUME, 1.0F,
-                    player.getRandom().nextLong()));
-        }
+        playersAboard(entity).forEach(player -> player.connection.send(new ClientboundSoundPacket(
+                WARP, SoundSource.AMBIENT, player.getX(), player.getY(), player.getZ(),
+                WARP_VOLUME, 1.0F, player.getRandom().nextLong())));
     }
 
     @Override
@@ -130,11 +129,15 @@ public final class PlayerPortalKind implements PortalKind {
         return portals.transition(entity, frame, toLevel, to);
     }
 
-    // Tells a player the line under playerportals.<key>; null, so the entity stays.
+    // Tells every player aboard the line under playerportals.<key>; null, so the entity stays.
     private static @Nullable TeleportTransition refuse(Entity entity, String key) {
-        if (entity instanceof ServerPlayer player) {
-            PlayerPortals.say(player, key);
-        }
+        playersAboard(entity).forEach(player -> PlayerPortals.say(player, key));
         return null;
+    }
+
+    // The entity and everything riding it, indirect riders included, that is a player; each once.
+    private static Stream<ServerPlayer> playersAboard(Entity entity) {
+        return entity.getSelfAndPassengers().filter(ServerPlayer.class::isInstance)
+                .map(ServerPlayer.class::cast);
     }
 }
