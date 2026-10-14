@@ -197,14 +197,12 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 .lightLevel(state -> LIGHT).randomTicks().setId(key);
     }
 
-    // The block's next try at a drop; vanilla keeps one pending tick per block and position, so a
-    // random tick on a block already ticking starts no second chain.
+    // The block's next try at a drop; vanilla's one pending tick per position keeps it one chain.
     private void scheduleDrip(ServerLevel level, BlockPos pos, RandomSource random) {
         level.scheduleTick(pos, this, DRIP_DELAY_MIN + random.nextInt(DRIP_DELAY_SPAN));
     }
 
-    // A drop on a random exposed face other than the top, at a spot clear of collision, landing on
-    // the first visual shape below or lost in a liquid; null when the face or spot drawn fails.
+    // A drop on a random bare face but the top, bound for the shape below; null on a bad draw.
     private static @Nullable Drop hang(ServerLevel level, BlockPos pos, BlockState state,
             RandomSource random) {
         Direction face = Direction.getRandom(random);
@@ -232,8 +230,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 lands, scale);
     }
 
-    // One coordinate of a drop's spot, within the block: anywhere across the face, or HANG_OUT
-    // off it along the face's own axis.
+    // One coordinate of a drop's spot: anywhere across the face, or HANG_OUT out along its axis.
     private static double onFace(int step, RandomSource random) {
         return step == 0 ? random.nextDouble() : 0.5 + step * (0.5 + HANG_OUT);
     }
@@ -320,8 +317,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             return PolymerResourcePackUtils.hasMainPack(player) && super.startWatching(player);
         }
 
-        // Polymer takes the display with any change to its block, a strict /setblock included,
-        // or with its chunk: the drop is gone from every watcher and forgotten.
+        // Polymer took the display, with its block or chunk: gone from every watcher, forgotten.
         @Override
         protected void onAttachmentRemoved(HolderAttachment oldAttachment) {
             Long2ObjectMap<Drop> drops = DROPS.get(dimension);
