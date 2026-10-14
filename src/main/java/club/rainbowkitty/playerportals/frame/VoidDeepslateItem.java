@@ -16,16 +16,14 @@ import net.minecraft.world.level.block.state.properties.Property;
 import club.rainbowkitty.kalic0re.common.item.PolymerModelBlockItem;
 
 /**
- * The frame block's item. A client holding a block item predicts placing that block: it puts the
- * block into its own world, plays its place sound and swings, and the server's answer replaces
- * whatever it guessed. So each client holds the item of the block it is shown, placing exactly
- * that. One without the pack holds crying obsidian. One with the pack holds the pool block's own
- * item, drawn with this block's model, its {@code block_state} pinning every property of the state
- * the pack draws this block on: infested deepslate would take its axis from the face clicked.
- * Held as a block item, it is also lit and heard by client mods as that block.
+ * The frame block's item. Each client holds the item of the block it is shown, so its own
+ * prediction of a place is right: crying obsidian without the pack, the pool state's item with
+ * it, drawn with this block's model and its {@code block_state} pinned to that exact state.
  */
 public final class VoidDeepslateItem extends PolymerModelBlockItem {
-    private final VoidDeepslateBlock frame;
+    private final BlockState packState;
+    // Every property of packState, which infested deepslate would otherwise take from the face.
+    private final BlockItemStateProperties pinned;
 
     /**
      * @param block the block placed
@@ -34,12 +32,17 @@ public final class VoidDeepslateItem extends PolymerModelBlockItem {
      */
     public VoidDeepslateItem(VoidDeepslateBlock block, Identifier model, Properties properties) {
         super(block, Items.CRYING_OBSIDIAN, model, properties);
-        this.frame = block;
+        this.packState = block.packState();
+        BlockItemStateProperties pinned = BlockItemStateProperties.EMPTY;
+        for (Property<?> property : packState.getProperties()) {
+            pinned = pinned.with(property, packState);
+        }
+        this.pinned = pinned;
     }
 
     @Override
     public Item getPolymerItem(ItemStack stack, PacketContext context) {
-        Item shown = frame.packState().getBlock().asItem();
+        Item shown = packState.getBlock().asItem();
         return PolymerResourcePackUtils.hasMainPack(context) && shown != Items.AIR ? shown
                 : super.getPolymerItem(stack, context);
     }
@@ -49,17 +52,7 @@ public final class VoidDeepslateItem extends PolymerModelBlockItem {
             HolderLookup.Provider lookup) {
         super.modifyBasePolymerItemStack(out, stack, context, lookup);
         if (PolymerResourcePackUtils.hasMainPack(context)) {
-            BlockState state = frame.packState();
-            BlockItemStateProperties pinned = BlockItemStateProperties.EMPTY;
-            for (Property<?> property : state.getProperties()) {
-                pinned = pin(pinned, property, state);
-            }
             out.set(DataComponents.BLOCK_STATE, pinned);
         }
-    }
-
-    private static <T extends Comparable<T>> BlockItemStateProperties pin(
-            BlockItemStateProperties pinned, Property<T> property, BlockState state) {
-        return pinned.with(property, state);
     }
 }
