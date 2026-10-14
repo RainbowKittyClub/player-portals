@@ -7,6 +7,7 @@ import eu.pb4.polymer.blocks.api.PolymerTexturedBlock;
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import eu.pb4.polymer.virtualentity.api.ElementHolder;
 import eu.pb4.polymer.virtualentity.api.attachment.BlockBoundAttachment;
+import eu.pb4.polymer.virtualentity.api.attachment.HolderAttachment;
 import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -25,6 +26,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Brightness;
@@ -107,8 +109,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
     private static final float DRIP_VOLUME = 0.3F;
     private static final float DRIP_PITCH = 0.7F;
-    // Each level's drops by block, from the tick one forms until the block's next try at a drop
-    // or the block goes. Forgotten when the server stops; the displays go with their chunks.
+    // Each level's drops by block, until the block's next try at a drop or the display goes.
     private static final Map<ResourceKey<Level>, Long2ObjectMap<Drop>> DROPS = new HashMap<>();
 
     private final BlockState textured;
@@ -163,19 +164,6 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         return false;
     }
 
-    // A block gone mid-drop takes its drop or puddle with it, and leaves none for the next block
-    // here to finish. A removal that skips this, such as a strict /setblock, still takes the
-    // display, which is bound to the block, and the drop is forgotten at that spot's next tick.
-    @Override
-    protected void affectNeighborsAfterRemoval(BlockState state, ServerLevel level, BlockPos pos,
-            boolean movedByPiston) {
-        Long2ObjectMap<Drop> drops = DROPS.get(level.dimension());
-        Drop drop = drops == null ? null : drops.remove(pos.asLong());
-        if (drop != null) {
-            drop.dry();
-        }
-    }
-
     @Override
     protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState,
             boolean movedByPiston) {
@@ -201,11 +189,6 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 added -> new Long2ObjectOpenHashMap<>());
         long key = pos.asLong();
         Drop drop = drops.get(key);
-        // One whose display went with its chunk, or with a block here before, is forgotten.
-        if (drop != null && drop.gone()) {
-            drops.remove(key);
-            drop = null;
-        }
         if (drop != null && drop.phase() == Phase.HANGING) {
             level.scheduleTick(pos, this, drop.fall());
         } else if (drop != null && drop.phase() == Phase.FALLING) {
@@ -213,17 +196,15 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
                 drop.settle();
                 drip(level, drop.landing(), random);
             } else {
-                drops.remove(key);
-                drop.dry();
+                drop.destroy();
             }
             scheduleDrip(level, pos, random);
         } else {
             if (drop != null) {
-                drop.dry();
+                drop.destroy();
             }
             Drop formed = hang(level, pos, state, random);
             if (formed == null) {
-                drops.remove(key);
                 scheduleDrip(level, pos, random);
                 return;
             }
@@ -312,9 +293,10 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
      * bound to the block, so Polymer takes the display away whenever the block there changes,
      * however it changes.
      */
-    private static final class Drop {
-        private final ElementHolder holder = new ElementHolder();
+    private static final class Drop extends ElementHolder {
         private final TextDisplayElement sprite = new TextDisplayElement(HANG);
+        private final ResourceKey<Level> dimension;
+        private final long blockKey;
         private final Vec3 from;
         private final Vec3 landing;
         private final boolean lands;
@@ -325,6 +307,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         // puddle there if it `lands`.
         private Drop(ServerLevel level, BlockPos block, BlockState state, Vec3 from, Vec3 landing,
                 boolean lands, float scale) {
+            this.dimension = level.dimension();
+            this.blockKey = block.asLong();
             this.from = from;
             this.landing = landing;
             this.lands = lands;
@@ -335,13 +319,11 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             // A tear's particles are all full bright, as is this.
             sprite.setBrightness(Brightness.FULL_BRIGHT);
             sprite.setScale(new Vector3f(scale));
-            sprite.setVisibilityPredicate(
-                    player -> PolymerResourcePackUtils.hasMainPack(player.connection));
             centre(HANG_CENTRE);
-            holder.addElement(sprite);
+            addElement(sprite);
             // Polymer marks this constructor internal: its public factory serves only blocks that
             // keep a holder of their own.
-            new BlockBoundAttachment(holder, level.getChunkAt(block), state, block.immutable(),
+            new BlockBoundAttachment(this, level.getChunkAt(block), state, block.immutable(),
                     from, false);
         }
 
@@ -357,9 +339,21 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             return landing;
         }
 
-        // Whether its display is gone, with its chunk or with the block it was bound to.
-        private boolean gone() {
-            return holder.getAttachment() == null;
+        // Pack players only, so no update of a display they never had reaches anyone else.
+        @Override
+        public boolean startWatching(ServerGamePacketListenerImpl player) {
+            return PolymerResourcePackUtils.hasMainPack(player) && super.startWatching(player);
+        }
+
+        // Polymer takes the display with any change to its block, a strict /setblock included,
+        // or with its chunk: the drop is gone from every watcher and forgotten.
+        @Override
+        protected void onAttachmentRemoved(HolderAttachment oldAttachment) {
+            Long2ObjectMap<Drop> drops = DROPS.get(dimension);
+            if (drops != null) {
+                drops.remove(blockKey, this);
+            }
+            destroy();
         }
 
         // Lets go: the client glides the falling dot to the floor over a tear's fall from this
@@ -371,7 +365,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             centre(FALL_CENTRE);
             sprite.setTeleportDuration(ticks);
             sprite.setOffset(over(DOT_HEIGHT).subtract(from));
-            holder.tick();
+            tick();
             phase = Phase.FALLING;
             return ticks;
         }
@@ -382,12 +376,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             centre(PUDDLE_CENTRE);
             sprite.setTeleportDuration(0);
             sprite.setOffset(over(BAR_HEIGHT).subtract(from));
-            holder.tick();
+            tick();
             phase = Phase.LYING;
-        }
-
-        private void dry() {
-            holder.destroy();
         }
 
         // Brings the mark's centre, drawn off the entity's position, onto it. The translation is
