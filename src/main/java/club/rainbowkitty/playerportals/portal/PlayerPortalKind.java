@@ -96,7 +96,7 @@ public final class PlayerPortalKind implements PortalKind {
 
     @Override
     public void onFaded(MinecraftServer server, @Nullable ServerLevel level, PortalFrame frame) {
-        PortalLinks.of(server).unlink(server, frame);
+        PortalLinks.unlink(server, frame);
         if (level != null && level.isLoaded(frame.origin())) {
             PortalEffects.faded(level, frame);
         }
@@ -107,18 +107,18 @@ public final class PlayerPortalKind implements PortalKind {
             PortalFrame frame, BlockPos entryPos) {
         MinecraftServer server = level.getServer();
         Portals portals = PlayerPortals.portals();
-        PortalLinks links = PortalLinks.of(server);
-        PortalFrame to = links.destinationOf(frame);
+        PortalFrame to = PortalLinks.destinationOf(server, frame);
         if (to == null) {
             return refuse(entity, "portal.unlinked");
         }
         ServerLevel toLevel = server.getLevel(to.dimension());
-        if (toLevel == null || !portals.has(server, to) || !portals.finder().isLit(toLevel, to)) {
+        boolean recorded = portals.has(server, to);
+        if (toLevel == null || !recorded || !portals.finder().isLit(toLevel, to)) {
             // A far end gone without the framework hearing of it: drop it and what led there.
-            if (portals.has(server, to)) {
+            if (recorded) {
                 portals.fade(server, to);
             } else {
-                links.unlink(server, to);
+                PortalLinks.unlink(server, to);
             }
             return refuse(entity, "portal.broken");
         }

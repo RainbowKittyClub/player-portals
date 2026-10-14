@@ -11,8 +11,8 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
@@ -28,6 +28,7 @@ import net.minecraft.world.level.Level;
 import club.rainbowkitty.kalic0re.common.item.PolymerModelItem;
 import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.playerportals.PlayerPortals;
+import club.rainbowkitty.playerportals.portal.PortalEffects;
 
 /**
  * An item that works in two clicks on frame blocks: the first attunes it to that frame, the
@@ -40,23 +41,12 @@ public abstract class CatalystItem extends PolymerModelItem {
     private static final Style ATTUNED =
             Style.EMPTY.withColor(ChatFormatting.AQUA).withItalic(false);
 
-    private final String path;
+    private final ResourceKey<Item> key;
 
-    protected CatalystItem(ResourceKey<Item> key, String path, Properties properties) {
-        super(Items.HEART_OF_THE_SEA, PlayerPortals.id(path), properties.setId(key).stacksTo(1)
-                .component(DataComponents.LORE, new ItemLore(List.of(hint(path)))));
-        this.path = path;
-    }
-
-    /** {@code frame} for a player: size, orientation, origin and dimension. */
-    public static MutableComponent describe(PortalFrame frame) {
-        Identifier dimension = frame.dimension().identifier();
-        String where = "minecraft".equals(dimension.getNamespace())
-                ? dimension.getPath() : dimension.toString();
-        return PlayerPortals.text().of(PlayerPortals.MOD_ID + ".frame", frame.width(),
-                frame.height(), PlayerPortals.text().of(PlayerPortals.MOD_ID + ".plane."
-                        + frame.plane().getSerializedName()),
-                frame.origin().getX(), frame.origin().getY(), frame.origin().getZ(), where);
+    protected CatalystItem(ResourceKey<Item> key, Properties properties) {
+        super(Items.HEART_OF_THE_SEA, key.identifier(), properties.setId(key).stacksTo(1)
+                .component(DataComponents.LORE, new ItemLore(List.of(hint(key)))));
+        this.key = key;
     }
 
     @Override
@@ -66,14 +56,12 @@ public abstract class CatalystItem extends PolymerModelItem {
             return InteractionResult.SUCCESS;
         }
         if (!permitted(player)) {
-            say(player, deniedKey());
-            return InteractionResult.CONSUME;
+            return refuse(player, deniedKey());
         }
         Optional<PortalFrame> frame = PlayerPortals.portals().finder()
                 .findAround(level, context.getClickedPos(), context.getClickedFace());
         if (frame.isEmpty()) {
-            say(player, "catalyst.no_frame");
-            return InteractionResult.CONSUME;
+            return refuse(player, "catalyst.no_frame");
         }
         return onFrame(level, player, context.getItemInHand(), frame.get());
     }
@@ -88,7 +76,7 @@ public abstract class CatalystItem extends PolymerModelItem {
         }
         if (player instanceof ServerPlayer serverPlayer) {
             attune(stack, null);
-            say(serverPlayer, "catalyst.cleared");
+            PlayerPortals.say(serverPlayer, "catalyst.cleared");
         }
         return InteractionResult.CONSUME;
     }
@@ -107,10 +95,18 @@ public abstract class CatalystItem extends PolymerModelItem {
     protected abstract InteractionResult onFrame(ServerLevel level, ServerPlayer player,
             ItemStack stack, PortalFrame frame);
 
+    /** {@code frame} for a player: size, orientation, origin and dimension. */
+    protected static MutableComponent describe(PortalFrame frame) {
+        return PlayerPortals.line("frame", frame.width(), frame.height(),
+                PlayerPortals.line("plane." + frame.plane().getSerializedName()),
+                frame.origin().getX(), frame.origin().getY(), frame.origin().getZ(),
+                frame.dimension().identifier().toShortString());
+    }
+
     /** Sets, or with null clears, the frame {@code stack} is attuned to, and its lore line. */
     protected void attune(ItemStack stack, @Nullable PortalFrame frame) {
         List<Component> lines = new ArrayList<>(2);
-        lines.add(hint(path));
+        lines.add(hint(key));
         if (frame == null) {
             stack.remove(CatalystComponents.ATTUNED);
         } else {
@@ -121,14 +117,43 @@ public abstract class CatalystItem extends PolymerModelItem {
         stack.set(DataComponents.LORE, new ItemLore(lines));
     }
 
-    /** Tells {@code player} the line under {@code playerportals.}{@code key}, in chat. */
-    protected static void say(ServerPlayer player, String key, Object... args) {
-        player.sendSystemMessage(
-                PlayerPortals.text().of(PlayerPortals.MOD_ID + "." + key, args));
+    /**
+     * Attunes {@code stack} to {@code frame}, marks the frame, and tells {@code player} the line
+     * under {@code playerportals.<lineKey>}, which names it; the server swings.
+     */
+    protected InteractionResult attuneTo(ServerLevel level, ServerPlayer player, ItemStack stack,
+            PortalFrame frame, String lineKey) {
+        attune(stack, frame);
+        PortalEffects.attuned(level, frame);
+        PlayerPortals.say(player, lineKey, describe(frame));
+        return InteractionResult.SUCCESS_SERVER;
     }
 
-    private static Component hint(String path) {
-        return PlayerPortals.text().of("item." + PlayerPortals.MOD_ID + "." + path + ".tooltip")
+    /** Tells {@code player} the line under {@code playerportals.<lineKey>}; no one swings. */
+    protected static InteractionResult refuse(ServerPlayer player, String lineKey) {
+        PlayerPortals.say(player, lineKey);
+        return InteractionResult.CONSUME;
+    }
+
+    /**
+     * Whether the complete {@code frame} holds a portal: its interior is air or portal, so its
+     * origin tells.
+     */
+    protected static boolean hasPortal(ServerLevel level, PortalFrame frame) {
+        return !level.getBlockState(frame.origin()).isAir();
+    }
+
+    /** The level {@code frame} stands complete in, or null when its dimension or ring is gone. */
+    protected static @Nullable ServerLevel standingLevel(MinecraftServer server,
+            PortalFrame frame) {
+        ServerLevel level = server.getLevel(frame.dimension());
+        return level != null && PlayerPortals.portals().finder().isComplete(level, frame)
+                ? level : null;
+    }
+
+    // This item's tooltip line, item.playerportals.<path>.tooltip.
+    private static Component hint(ResourceKey<Item> key) {
+        return PlayerPortals.text().of(key.identifier().toLanguageKey("item", "tooltip"))
                 .withStyle(HINT);
     }
 }

@@ -10,7 +10,6 @@ import net.minecraft.world.item.ItemStack;
 import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.PortalPermissions;
-import club.rainbowkitty.playerportals.portal.PortalEffects;
 import club.rainbowkitty.playerportals.portal.PortalLinks;
 
 /**
@@ -19,7 +18,7 @@ import club.rainbowkitty.playerportals.portal.PortalLinks;
  */
 public final class AdminCatalystItem extends CatalystItem {
     public AdminCatalystItem(ResourceKey<Item> key, Properties properties) {
-        super(key, "admin_portal_catalyst", properties);
+        super(key, properties);
     }
 
     @Override
@@ -36,36 +35,26 @@ public final class AdminCatalystItem extends CatalystItem {
     protected InteractionResult onFrame(ServerLevel level, ServerPlayer player, ItemStack stack,
             PortalFrame frame) {
         if (player.isShiftKeyDown()) {
-            attune(stack, frame);
-            PortalEffects.attuned(level, frame);
-            say(player, "admin.destination_set", describe(frame));
-            return InteractionResult.SUCCESS_SERVER;
+            return attuneTo(level, player, stack, frame, "admin.destination_set");
         }
         PortalFrame destination = stack.get(CatalystComponents.ATTUNED);
         if (destination == null) {
-            say(player, "admin.no_destination");
-            return InteractionResult.CONSUME;
+            return refuse(player, "admin.no_destination");
         }
         if (destination.equals(frame)) {
-            say(player, "catalyst.same_frame");
-            return InteractionResult.CONSUME;
+            return refuse(player, "catalyst.same_frame");
         }
-        if (!level.getBlockState(frame.origin()).isAir()) {
-            say(player, "admin.already_lit");
-            return InteractionResult.CONSUME;
+        if (hasPortal(level, frame)) {
+            return refuse(player, "admin.already_lit");
         }
-        ServerLevel destinationLevel = level.getServer().getLevel(destination.dimension());
-        if (destinationLevel == null
-                || !PlayerPortals.portals().finder().isComplete(destinationLevel, destination)) {
+        if (standingLevel(level.getServer(), destination) == null) {
             attune(stack, null);
-            say(player, "catalyst.first_gone");
-            return InteractionResult.CONSUME;
+            return refuse(player, "catalyst.first_gone");
         }
-        if (!PortalLinks.of(level.getServer()).linkOneWay(level.getServer(), frame, destination)) {
-            say(player, "catalyst.crossed");
-            return InteractionResult.CONSUME;
+        if (!PortalLinks.linkOneWay(level.getServer(), frame, destination)) {
+            return refuse(player, "catalyst.crossed");
         }
-        say(player, "admin.linked", describe(destination));
+        PlayerPortals.say(player, "admin.linked", describe(destination));
         return InteractionResult.SUCCESS_SERVER;
     }
 }
