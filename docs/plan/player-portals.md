@@ -1,6 +1,6 @@
 # Player Portals
 
-Portals that players build from any full, solid block, light in pairs with a Portal Catalyst, and
+Portals that players frame in void-infused deepslate, light in pairs with a Portal Catalyst, and
 walk through across dimensions, served to vanilla clients through Polymer. Every API claim below was
 checked against `libs/decompiledjava/minecraft-26.2/`, `libs/polymer/` (branch `dev/26.2`) or
 `javap` on the 26.2 deobf jar, cited as `File.java:line`. Gameplay claims (what a client renders,
@@ -60,6 +60,9 @@ inside the far portal goes straight back alone.** Only the entity that crossed g
 (Entity.java:2621); its passengers could not use the portal while riding (`canUsePortal(false)`,
 Entity.java:3201) and arrive with none. The exit's post-transition step gives every indirect
 passenger one; cross-dimension riders are re-mounted before it runs (Entity.java:3084-3088).
+For the same reason the kind hears only of the entity that crossed, the vehicle when one is
+ridden: its refusals and its warp go to every player aboard (`Entity.getSelfAndPassengers`),
+indirect riders included.
 
 **An entity that does not fit the far frame would be planted in its ring.** Vanilla's 2×3
 minimum hides this; here a 1-high upright frame is legal for items. So a crossing is refused with
@@ -105,7 +108,10 @@ state; the break effect stays a nether portal's.
 **Links and lit frames are saved apart, so they are reconciled on start.** The framework keeps lit
 frames in its own file and this mod keeps destinations in `playerportals:links`, both in the
 server's own storage (`<world>/data/playerportals/`), which exists before any level: a chunk loaded
-from a level's constructor, as bannerpoint loads its saved banners' chunks, reaches both. A crash
+from a level's constructor, as bannerpoint loads its saved banners' chunks, reaches both. 0.1.0
+kept both in the overworld's storage, and nothing reads them there now: to upgrade a world from
+0.1.0, move `dimensions/minecraft/overworld/data/playerportals/portal_frames.dat` and `links.dat`
+to `data/playerportals/` with the server stopped, or its portals and links are lost. A crash
 between the two saves, or a command clearing blocks behind the removal hook, can leave one
 naming what the other lost. `PortalLinks.reconcile` runs at `SERVER_STARTED`: a link from or to
 an unlit frame goes, and a lit frame no link reaches fades. Linking also answers false when the
@@ -181,7 +187,9 @@ forgotten at server stop. Known: a player who starts watching mid-fall is spawne
 is going and sees it sit there until it lands, as Polymer spawns an element at its last synced
 position. The cost over the particles: up to one display per frame
 block at a time, and its packets reach every pack player with the chunk loaded rather than those
-within 32 blocks, about 0.5 KB/s per nearby player for a 3 by 4 portal.
+within 32 blocks, about 0.5 KB/s per nearby player for a 3 by 4 portal. A block whose chunk no
+pack player has loaded builds no drop and only keeps its tick, so a pack player who arrives sees
+drops start within 2 to 6 s.
 
 **Registration reworked (user report, 2026-10-13).** On their client the user saw three faults:
 placing the block showed crying obsidian, broken with particles, before the real block; their own
@@ -498,7 +506,13 @@ nothing; the admin catalyst makes two one-way portals to one destination and is 
 Later the same day, on the user's request: the admin catalyst takes its destination from a
 sneaking click on any frame, lit or not, and a plain click with none set says so; a plain click
 with one set lights a source as before. The pair catalyst links any two complete unlit frames.
-Every line is chat, not the action bar. Otherwise as planned, except the recipe book: no unlock
+Every line is chat, not the action bar. A click on any block but a frame block passes, with no
+line: kalic0re `HandClicks` drops the rest of a click the server answered with a success, which a
+refusal is, so a catalyst in the main hand would otherwise keep the off hand's torch from being
+placed. The item's own use hears it next, and a sneaking use clears the attunement only when no
+block within reach is under the crosshair (`Entity.pick`, the outline pick a client's crosshair
+makes), so a sneaking misclick on stone keeps it, the admin catalyst's destination included.
+Otherwise as planned, except the recipe book: no unlock
 advancement for the catalyst (the frame block's recipe has an ordinary one). It is reconciled on join
 (`CatalystCrafting.register`), awarded to a player with `playerportals.craft` and removed from one
 without, because an advancement fires once and a player denied at that moment would never get the
@@ -580,7 +594,19 @@ north–south frame, the sneak-click destination, a shared ring column breaking 
 the beacon sound heard, and a flat portal's interior shattering as nether portal blocks. The lint map and the workspace `CLAUDE.md` row are in; `lintAll` reports nothing for this
 mod, its 335 findings all sit in `rk-tweaks` from before. Not covered by a leg: the "too
 small" refusal, the rider cooldown, and a dead partner clearing when its unloaded chunk loads
-(both ends are forceloaded in every leg). The creative-break legs, no break event to a creative breaker of a frame block or a portal's interior, pass only on a Polymer that leaves that break to the client; the mod no longer does. No remote exists yet for a push.
+(both ends are forceloaded in every leg). The creative-break legs, no break event to a creative breaker of a frame block or a portal's interior, pass only on a Polymer that leaves that break to the client; the mod no longer does.
+
+78 legs on 2026-10-14, 75 passing, the three creative-break legs failing as above. A catalyst
+click on a ring of stone now gets no line. Seven legs are new: a catalyst click on stone with
+torches in the off hand, sent as a vanilla client sends it, places a torch; a lone frame block
+still gets the "no frame" line; an attuned catalyst and an attuned admin catalyst each stay
+attuned through a sneaking click on stone, with no line, and sneak-use at the sky resets the
+first; a bot in a minecart or a boat standing in a portal that leads nowhere is told so; a bot in
+a minecart crossing a linked portal arrives aboard and hears the warp once. Against a build
+without the pass-through and the riders' lines, the stone-ring, torch and both rider legs fail;
+without the sneak guard, both stone legs fail and the admin legs after them lose their
+destination. A drop hung within 0.0028 of where it rests gets no fall move, since Polymer sends
+none that short, and the drop legs now allow for it.
 
 ## Open decisions
 
@@ -610,7 +636,8 @@ small" refusal, the rider cooldown, and a dead partner clearing when its unloade
   `entityInside(BlockState, Level, BlockPos, Entity, InsideBlockEffectApplier, boolean)` (:377).
 - `BlockState.isCollisionShapeFullBlock(BlockGetter, BlockPos)` (BlockBehaviour.java:889), cached.
 - `SavedDataType(Identifier, Supplier<T>, Codec<T>, DataFixTypes)`; `SavedDataStorage.
-  computeIfAbsent(SavedDataType)`; `ServerLevel.getDataStorage()` (ServerLevel.java:1475).
+  computeIfAbsent(SavedDataType)`; `MinecraftServer.getDataStorage()` (MinecraftServer.java:2145),
+  `<world>/data/`, made in the server's constructor (:329).
 - `PolymerBlock.getPolymerBlockState(BlockState, PacketContext)`; `BlockWithElementHolder.
   createElementHolder(ServerLevel, BlockPos, BlockState)` nullable, `tickElementHolder` default
   false.
