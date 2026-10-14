@@ -132,9 +132,10 @@ public final class PlayerPortalKind implements PortalKind {
         return portals.transition(entity, frame, toLevel, to);
     }
 
+    // Tells a player the line under playerportals.<key>; null, so the entity stays.
     private static @Nullable TeleportTransition refuse(Entity entity, String key) {
         if (entity instanceof ServerPlayer player) {
-            player.sendSystemMessage(PlayerPortals.text().of(PlayerPortals.MOD_ID + "." + key));
+            PlayerPortals.say(player, key);
         }
         return null;
     }

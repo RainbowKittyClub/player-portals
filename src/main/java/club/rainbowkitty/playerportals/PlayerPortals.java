@@ -1,10 +1,18 @@
 package club.rainbowkitty.playerportals;
 
+import java.util.function.Function;
+
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import net.fabricmc.api.ModInitializer;
 
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.Item;
 
+import club.rainbowkitty.kalic0re.common.item.ItemNames;
+import club.rainbowkitty.kalic0re.common.item.ItemRegistration;
 import club.rainbowkitty.kalic0re.common.portal.PortalBlock;
 import club.rainbowkitty.kalic0re.common.portal.Portals;
 import club.rainbowkitty.kalic0re.common.text.FallbackText;
@@ -36,6 +44,28 @@ public final class PlayerPortals implements ModInitializer {
     /** This mod's English, as translatable components a vanilla client can read. */
     public static FallbackText text() {
         return text;
+    }
+
+    /** The line under {@code playerportals.<key>}, with {@code args} formatted in. */
+    public static MutableComponent line(String key, Object... args) {
+        return text.of(MOD_ID + "." + key, args);
+    }
+
+    /** Tells {@code player} the line under {@code playerportals.<key>}, in chat. */
+    public static void say(ServerPlayer player, String key, Object... args) {
+        player.sendSystemMessage(line(key, args));
+    }
+
+    /**
+     * Registers the item {@code factory} makes as {@code playerportals:<path>}, named in this
+     * mod's English by its description id, which a vanilla client has no translation for.
+     */
+    public static <T extends Item> T registerItem(String path,
+            Function<ResourceKey<Item>, T> factory) {
+        return ItemRegistration.register(MOD_ID, path, key -> {
+            T item = factory.apply(key);
+            return ItemNames.named(key, text.of(item.getDescriptionId()), item);
+        });
     }
 
     /** This mod's portals: block, frames and lit registry, from kalic0re's portal framework. */
