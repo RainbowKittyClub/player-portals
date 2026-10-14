@@ -6,6 +6,7 @@ import org.jspecify.annotations.Nullable;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
@@ -15,6 +16,7 @@ import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
@@ -45,22 +47,19 @@ public final class PlayerPortalKind implements PortalKind {
     private static final int TEAL = 0xFF159C9C;
     private static final int PALE_TEAL = 0xFF5FDEDE;
     private static final int DEEP_TEAL = 0xFF0A4646;
+    private static final Holder<SoundEvent> WARP =
+            BuiltInRegistries.SOUND_EVENT.wrapAsHolder(PortalSounds.PORTAL_JUMP);
     private static final float WARP_VOLUME = 0.6F;
-
-    private @Nullable PortalMaterial material;
 
     @Override
     public boolean isFrameBlock(BlockState state) {
         return state.is(FrameBlocks.VOID_DEEPSLATE);
     }
 
-    // Built on first use: the item registers after this kind is handed to the framework.
+    // Made when asked, not at class init: a stack needs its item's components, bound only later.
     @Override
     public PortalMaterial material() {
-        if (material == null) {
-            material = new PortalMaterial(new ItemStack(PortalMaterials.MATERIAL), PLAIN);
-        }
-        return material;
+        return new PortalMaterial(new ItemStack(PortalMaterials.MATERIAL), PLAIN);
     }
 
     // A thin sheet of the effect family in turn over the whole plane, and a slow drift of pale
@@ -82,10 +81,9 @@ public final class PlayerPortalKind implements PortalKind {
     @Override
     public void travelSound(Entity entity) {
         if (entity instanceof ServerPlayer player) {
-            player.connection.send(new ClientboundSoundPacket(
-                    BuiltInRegistries.SOUND_EVENT.wrapAsHolder(PortalSounds.PORTAL_JUMP),
-                    SoundSource.AMBIENT, player.getX(), player.getY(), player.getZ(), WARP_VOLUME,
-                    1.0F, player.getRandom().nextLong()));
+            player.connection.send(new ClientboundSoundPacket(WARP, SoundSource.AMBIENT,
+                    player.getX(), player.getY(), player.getZ(), WARP_VOLUME, 1.0F,
+                    player.getRandom().nextLong()));
         }
     }
 
