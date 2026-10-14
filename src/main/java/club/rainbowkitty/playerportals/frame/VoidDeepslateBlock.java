@@ -37,6 +37,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -179,7 +180,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             if (drop != null) {
                 drop.destroy();
             }
-            Drop formed = hang(level, pos, state, random);
+            Drop formed = packPlayerWatches(level, pos) ? hang(level, pos, state, random) : null;
             if (formed == null) {
                 scheduleDrip(level, pos, random);
                 return;
@@ -235,6 +236,17 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     // off it along the face's own axis.
     private static double onFace(int step, RandomSource random) {
         return step == 0 ? random.nextDouble() : 0.5 + step * (0.5 + HANG_OUT);
+    }
+
+    // Whether a player with the pack has the chunk of pos loaded, and so would see a drop there.
+    private static boolean packPlayerWatches(ServerLevel level, BlockPos pos) {
+        for (ServerPlayer player : level.getChunkSource().chunkMap.getPlayers(
+                ChunkPos.containing(pos), false)) {
+            if (PolymerResourcePackUtils.hasMainPack(player.connection)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // The soft drip of a drop landing at `at`, for players with the pack within earshot.
