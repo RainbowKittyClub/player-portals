@@ -24,6 +24,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.HitResult;
 
 import club.rainbowkitty.kalic0re.common.item.PolymerModelItem;
 import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
@@ -34,7 +35,8 @@ import club.rainbowkitty.playerportals.portal.PortalEffects;
  * An item that works in two clicks on frame blocks: the first attunes it to that frame, the
  * second acts on the pair. A vanilla client sees a heart of the sea under this item's name, with
  * the attuned frame as a lore line; a client with the resource pack sees the item's own art.
- * Sneak-use on nothing clears the attunement. Every line is said in chat.
+ * A click on any other block passes it on, and sneak-use aimed at no block clears the
+ * attunement. Every line is said in chat.
  */
 public abstract class CatalystItem extends PolymerModelItem {
     private static final Style HINT = Style.EMPTY.withColor(ChatFormatting.GRAY).withItalic(false);
@@ -55,6 +57,11 @@ public abstract class CatalystItem extends PolymerModelItem {
                 || !(context.getPlayer() instanceof ServerPlayer player)) {
             return InteractionResult.SUCCESS;
         }
+        // Off a frame block the click passes on, to this item's use and then the off hand.
+        if (!PlayerPortals.portals().finder().isFrameBlock(
+                level.getBlockState(context.getClickedPos()))) {
+            return InteractionResult.PASS;
+        }
         if (!permitted(player)) {
             return refuse(player, deniedKey());
         }
@@ -67,11 +74,12 @@ public abstract class CatalystItem extends PolymerModelItem {
     }
 
     // CONSUME, not SUCCESS: Polymer turns a success into a server-sent swing, which a vanilla
-    // client echoes back as a left-click.
+    // client echoes back as a left-click. A sneaking click at a block passes, attunement kept.
     @Override
     public InteractionResult use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        if (!player.isShiftKeyDown() || !stack.has(CatalystComponents.ATTUNED)) {
+        if (!player.isShiftKeyDown() || !stack.has(CatalystComponents.ATTUNED)
+                || aimsAtBlock(player)) {
             return InteractionResult.PASS;
         }
         if (player instanceof ServerPlayer serverPlayer) {
@@ -149,6 +157,12 @@ public abstract class CatalystItem extends PolymerModelItem {
         ServerLevel level = server.getLevel(frame.dimension());
         return level != null && PlayerPortals.portals().finder().isComplete(level, frame)
                 ? level : null;
+    }
+
+    // Whether a block within reach is under the crosshair, by the outline pick a client makes.
+    private static boolean aimsAtBlock(Player player) {
+        return player.pick(player.blockInteractionRange(), 1.0F, false).getType()
+                == HitResult.Type.BLOCK;
     }
 
     // This item's tooltip line, item.playerportals.<path>.tooltip.
