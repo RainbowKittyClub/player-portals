@@ -10,10 +10,10 @@ import club.rainbowkitty.kalic0re.common.command.CommandPermissions;
  * until a permission mod says otherwise; the admin catalyst falls back to operator level 2.
  */
 public final class PortalPermissions {
-    public static final String LINK = PlayerPortals.MOD_ID + ".link";
-    public static final String BREAK = PlayerPortals.MOD_ID + ".break";
-    public static final String CRAFT = PlayerPortals.MOD_ID + ".craft";
-    public static final String ADMIN = PlayerPortals.MOD_ID + ".admin";
+    private static final String LINK = PlayerPortals.MOD_ID + ".link";
+    private static final String BREAK = PlayerPortals.MOD_ID + ".break";
+    private static final String CRAFT = PlayerPortals.MOD_ID + ".craft";
+    private static final String ADMIN = PlayerPortals.MOD_ID + ".admin";
 
     private PortalPermissions() {
     }
