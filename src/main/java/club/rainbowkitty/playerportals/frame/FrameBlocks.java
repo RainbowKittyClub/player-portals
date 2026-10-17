@@ -12,11 +12,13 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
+import club.rainbowkitty.kalic0re.common.item.PolymerModelBlockItem;
 import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.mixin.PolymerBlockResourceUtilsAccessor;
 
@@ -38,9 +40,11 @@ public final class FrameBlocks {
         VoidDeepslateBlock block = Registry.register(BuiltInRegistries.BLOCK, key,
                 new VoidDeepslateBlock(key,
                         textured(PolymerBlockModel.of(PlayerPortals.id("block/" + path)))));
-        PlayerPortals.registerItem(path, itemKey -> new VoidDeepslateItem(block,
-                itemKey.identifier(), new Item.Properties().setId(itemKey)
-                        .useBlockDescriptionPrefix()));
+        // Crying obsidian without the pack; with it, kalic0re's stand-in policy pins the pool
+        // state's item (infested deepslate) to that exact state.
+        PlayerPortals.registerItem(path, itemKey -> new PolymerModelBlockItem(block,
+                Items.CRYING_OBSIDIAN, itemKey.identifier(),
+                new Item.Properties().setId(itemKey).useBlockDescriptionPrefix()));
         return block;
     }
 

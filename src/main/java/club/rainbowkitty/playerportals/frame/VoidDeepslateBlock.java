@@ -55,8 +55,9 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 /**
  * The block a frame is built from: deepslate with an ender pearl in it, light 7. A client with
  * the resource pack sees its texture on a pool state ({@link FrameBlocks}) and holds that state's
- * item ({@link VoidDeepslateItem}); any other sees and holds crying obsidian. It weeps as crying
- * obsidian does: a pack client is shown a teal tear now and then, one text display per drop.
+ * item, pinned to it by kalic0re's stand-in policy; any other sees and holds crying obsidian. It
+ * weeps as crying obsidian does: a pack client is shown a teal tear now and then, one text display
+ * per drop.
  * {@code docs/plan/player-portals.md} has the reasoning and the measurements.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
