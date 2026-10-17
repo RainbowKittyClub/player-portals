@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -27,6 +28,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.HitResult;
 
 import club.rainbowkitty.kalic0re.common.item.PolymerModelItem;
+import club.rainbowkitty.kalic0re.common.portal.FrameFinder;
 import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.portal.PortalEffects;
@@ -57,16 +59,16 @@ public abstract class CatalystItem extends PolymerModelItem {
                 || !(context.getPlayer() instanceof ServerPlayer player)) {
             return InteractionResult.SUCCESS;
         }
+        FrameFinder finder = PlayerPortals.portals().finder();
+        BlockPos clicked = context.getClickedPos();
         // Off a frame block the click passes on, to this item's use and then the off hand.
-        if (!PlayerPortals.portals().finder().isFrameBlock(
-                level.getBlockState(context.getClickedPos()))) {
+        if (!finder.isFrameBlock(level.getBlockState(clicked))) {
             return InteractionResult.PASS;
         }
         if (!permitted(player)) {
             return refuse(player, deniedKey());
         }
-        Optional<PortalFrame> frame = PlayerPortals.portals().finder()
-                .findAround(level, context.getClickedPos(), context.getClickedFace());
+        Optional<PortalFrame> frame = finder.findAround(level, clicked, context.getClickedFace());
         if (frame.isEmpty()) {
             return refuse(player, "catalyst.no_frame");
         }
