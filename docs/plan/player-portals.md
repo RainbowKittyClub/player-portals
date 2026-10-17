@@ -206,8 +206,9 @@ the Enderscape Polymer patch (decompiled):
   The user's Sounds mod plays its trial-spawner jingle for any trial key (its built-in
   `sounds/items/trial_keys.json`), so every trial-key Polymer item rings; LambDynamicLights gives
   a trial key no light, nor does Iris give a held non-block item any but by its `item_model`. As
-  built, `VoidDeepslateItem` sends the pack client the item of the very state it is shown
-  (`infested_deepslate`), with a `block_state` component pinning every property of that state:
+  built, the item is a plain kalic0re `PolymerModelBlockItem`, and RKC Polymer's stand-in policy
+  gives the pack client the item of the very state it is shown (`infested_deepslate`), with a
+  `block_state` component pinning every property of that state:
   `BlockItem.place` applies the component on the client too (BlockItem.java:70, 118), so the
   client guesses `infested_deepslate[axis=x]`, exactly what the server places, instead of the axis
   of the face clicked. No flash, the client swings and plays deepslate's place sound itself, and
