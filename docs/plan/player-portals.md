@@ -238,13 +238,19 @@ the Enderscape Polymer patch (decompiled):
   predicate overload of `BlockResourceCreator.requestBlock` (the pool reached by
   `mixin/PolymerBlockResourceUtilsAccessor`, keeping back the last state as the public path does),
   for `infested_deepslate[axis=x]`, else any full-block state. It sounds as deepslate, Presence
-  Footsteps calls it `slate` as it does deepslate, and coolrain lists it nowhere. The cost: a real
-  sideways infested deepslate shows as chiseled deepslate (Polymer's chosen host), but infested
-  deepslate generates upright (OreFeatures.java:122), so only one a creative player placed
-  sideways is touched, and only such a player would predict this state. Cobbled deepslate's double
-  slab was tried first and dropped the same day: a pack client predicts that state whenever it
-  doubles a real cobbled deepslate slab and would flash this block's texture, the fault this rework
-  set out to remove. With the client's own sounds right, the server-wide
+  Footsteps calls it `slate` as it does deepslate, and coolrain lists it nowhere. The cost: a client
+  placing a real infested deepslate against an east or west face predicts this state and shows this
+  block's texture until the server's acknowledgement, a round trip later, however fast it places;
+  only a creative player holds one, and infested deepslate generates upright (OreFeatures.java:122).
+  Polymer then shows the real block as its host: stock Polymer sends chiseled deepslate, the RKC
+  fork (`rkc/forks/polymer`, `rkc/26.2`) deepslate of the same axis, which looks and sounds the
+  same, as it does for a sideways one a silverfish hides in. The only other full-block state that
+  sounds as deepslate and that no placement predicts is a waterlogged deepslate double slab
+  (SlabBlock.java:72, 112), which drips water under every overhang (ClientLevel.java:600-605) and
+  turns to water on a creative break until the server answers (MultiPlayerGameMode.java:133-134).
+  Cobbled deepslate's double slab was tried first and dropped the same day: a pack client predicts
+  that state whenever it doubles a real cobbled deepslate slab and would flash this block's texture,
+  the fault this rework set out to remove. With the client's own sounds right, the server-wide
   `SoundPatcher.convertIntoServerSound(SoundType.WOOD)` and its `SoundRemapperMixin` are gone; they
   would have left a pack client's own steps on every other mod's note-block blocks, Enderscape's
   stone among them, silent, since the pack muted wood and only converted sounds are replayed. The
