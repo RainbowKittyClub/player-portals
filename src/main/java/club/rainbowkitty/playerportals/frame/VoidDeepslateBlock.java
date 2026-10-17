@@ -11,6 +11,7 @@ import eu.pb4.polymer.virtualentity.api.attachment.HolderAttachment;
 import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
@@ -37,7 +38,6 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -92,7 +92,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
     private static final float SCALE_SPAN = 1.0F;
     // A centred mark reaches half its height below the display; this much more clears the floor.
     private static final double FLOOR_LIFT = 0.01;
-    private static final double DRIP_RANGE_SQUARED = 32.0 * 32.0;
+    private static final double DRIP_RANGE = 32.0;
     private static final Holder<SoundEvent> DRIP_SOUND =
             BuiltInRegistries.SOUND_EVENT.wrapAsHolder(SoundEvents.POINTED_DRIPSTONE_DRIP_WATER);
     private static final float DRIP_VOLUME = 0.3F;
@@ -180,7 +180,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             if (drop != null) {
                 drop.destroy();
             }
-            Drop formed = packPlayerWatches(level, pos) ? hang(level, pos, state, random) : null;
+            Drop formed = hang(level, pos, state, random);
             if (formed == null) {
                 scheduleDrip(level, pos, random);
                 return;
@@ -202,7 +202,7 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         level.scheduleTick(pos, this, DRIP_DELAY_MIN + random.nextInt(DRIP_DELAY_SPAN));
     }
 
-    // A drop on a random bare face but the top, bound for the shape below; null on a bad draw.
+    // A drop on a random bare face but the top, bound for the shape below; null if bad or unseen.
     private static @Nullable Drop hang(ServerLevel level, BlockPos pos, BlockState state,
             RandomSource random) {
         Direction face = Direction.getRandom(random);
@@ -210,7 +210,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
             return null;
         }
         BlockPos beside = pos.relative(face);
-        if (level.getBlockState(beside).isFaceSturdy(level, beside, face.getOpposite())) {
+        if (level.getBlockState(beside).isFaceSturdy(level, beside, face.getOpposite())
+                || !packPlayerWatches(level, pos)) {
             return null;
         }
         Vec3 from = new Vec3(pos.getX() + onFace(face.getStepX(), random),
@@ -237,13 +238,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
 
     // Whether a player with the pack has the chunk of pos loaded, and so would see a drop there.
     private static boolean packPlayerWatches(ServerLevel level, BlockPos pos) {
-        for (ServerPlayer player : level.getChunkSource().chunkMap.getPlayers(
-                ChunkPos.containing(pos), false)) {
-            if (PolymerResourcePackUtils.hasMainPack(player.connection)) {
-                return true;
-            }
-        }
-        return false;
+        return PlayerLookup.tracking(level, pos).stream()
+                .anyMatch(player -> PolymerResourcePackUtils.hasMainPack(player.connection));
     }
 
     // The soft drip of a drop landing at `at`, for players with the pack within earshot.
@@ -251,9 +247,8 @@ public final class VoidDeepslateBlock extends Block implements PolymerTexturedBl
         float pitch = DRIP_PITCH + random.nextFloat() * 0.2F;
         long seed = random.nextLong();
         ClientboundSoundPacket packet = null;
-        for (ServerPlayer player : level.players()) {
-            if (player.distanceToSqr(at) <= DRIP_RANGE_SQUARED
-                    && PolymerResourcePackUtils.hasMainPack(player.connection)) {
+        for (ServerPlayer player : PlayerLookup.around(level, at, DRIP_RANGE)) {
+            if (PolymerResourcePackUtils.hasMainPack(player.connection)) {
                 if (packet == null) {
                     packet = new ClientboundSoundPacket(DRIP_SOUND, SoundSource.BLOCKS, at.x, at.y,
                             at.z, DRIP_VOLUME, pitch, seed);
