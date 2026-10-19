@@ -1,25 +1,25 @@
 # Building
 
 ```
-./gradlew build     # jar lands in build/libs/<mod_id>-<version>.jar
+./gradlew build     # versions/<v>/build/libs/playerportals-<version>+<v>.jar, one per version
 ```
 
-The house build is documented once for every first-party mod in `rkc/STYLE.md` — versions in
-`gradle.properties`, `processResources` templating of `fabric.mod.json` / the mixins json, the
-benign `Failed to parse fabric.mod.json` and refmap warnings, linting, datagen, and the dev-server
-workflow (`./gradlew runServer` / `stopServer`, `scripts/devserver.sh`). This file covers only where
-*this* mod departs from it.
+The house build is documented once for every first-party mod in the workspace's `docs/STYLE.md`.
+This file covers only where this mod departs from it.
 
-Record here only what applies, and delete the rest:
-
-- **`mavenLocal()` dependencies** — bil, or another first-party mod pulled in by relocation. Name
-  what has to be built and `publishToMavenLocal`'d first, in what order, and what a stale copy looks
-  like at runtime. This is the most common reason a fresh clone will not build.
-- **A datagen step `build` depends on** — the command (`./gradlew generateAssets`), what it derives
-  into `src/main/generated`, and when it has to be rerun.
-- **A non-obvious prerequisite** — a tool that isn't the Gradle wrapper, a tracked-but-generated
-  file, a branch that isn't the default.
-  **The name of the built jar** - if the build process produces intermediary jars that pollute `build/libs`.
-
-If `./gradlew build` from a fresh clone really is the whole story, delete everything below the
-command.
+- **Multi-version build** (Stonecutter): 26.2 and 26.3, with 26.2 committed. Each version's keys
+  are in `versions/<v>/gradle.properties`.
+  - 26.2 builds against Polymer 0.17.3 and 26.3 against Polymer 0.18.4, both from Maven.
+  - Dev servers are on ports 25624/25626 (26.2) and 25824/25826 (26.3).
+  - The bot legs in the workspace's `scripts/loadtest/player-portals.js` take `DEV_MC=26.3` for
+    the 26.3 server.
+  - The recipe advancement's `recipe_unlocked` condition names the recipe under both `recipe`
+    (26.2) and `recipes` (26.3). Each version reads its own key and ignores the other, so keep both.
+- **`mavenLocal()` dependency.** kalic0re's `command`, `text`, `item`, `click` and `portal`
+  packages are relocated into the jar from `club.rainbowkitty.kalic0re:kalic0re:<kalic0re_version>`
+  in `~/.m2`: `0.30.1` for 26.2 and `0.31.0+26.3` for 26.3.
+  - A fresh clone first needs `./gradlew publishToMavenLocal` in kalic0re, for each version.
+  - A stale copy shows up as a compile error naming a missing kalic0re class or method.
+- **The jar to install** is `playerportals-<version>+<v>.jar` for the server's version.
+  `-unshaded` and `-sources` beside it are not.
+- **No datagen.** Models, lang, recipes and the mixin config are static resources.
