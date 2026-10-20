@@ -13,7 +13,8 @@
     },
     "has_the_recipe": {
       "conditions": {
-        "recipe": "playerportals:void_infused_deepslate"
+        "recipe": "playerportals:void_infused_deepslate",
+        "recipes": "playerportals:void_infused_deepslate"
       },
       "trigger": "minecraft:recipe_unlocked"
     }
