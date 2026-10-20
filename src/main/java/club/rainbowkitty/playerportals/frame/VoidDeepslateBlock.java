@@ -58,7 +58,7 @@ import net.minecraft.world.phys.shapes.CollisionContext;
  * item, pinned to it by kalic0re's stand-in policy; any other sees and holds crying obsidian. It
  * weeps as crying obsidian does: a pack client is shown a teal tear now and then, one text display
  * per drop.
- * {@code docs/plan/player-portals.md} has the reasoning and the measurements.
+ * {@code rkc/docs/player-portals/plan/player-portals.md} has the reasoning and the measurements.
  */
 public final class VoidDeepslateBlock extends Block implements PolymerTexturedBlock {
     // Three levels under crying obsidian's 10.
