@@ -111,7 +111,10 @@ public final class PlayerPortalKind implements PortalKind {
         }
         ServerLevel toLevel = server.getLevel(to.dimension());
         boolean recorded = portals.has(server, to);
-        if (toLevel == null || !recorded || !portals.finder().isLit(toLevel, to)) {
+        // An unloaded far end is taken on the framework's record: reading it would load it on
+        // this tick, and the teleport itself waits for nothing.
+        if (toLevel == null || !recorded
+                || portals.isLoaded(toLevel, to) && !portals.finder().isLit(toLevel, to)) {
             // A far end gone without the framework hearing of it: drop it and what led there.
             if (recorded) {
                 portals.fade(server, to);
