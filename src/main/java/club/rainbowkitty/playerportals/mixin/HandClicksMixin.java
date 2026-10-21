@@ -25,7 +25,7 @@ import club.rainbowkitty.kalic0re.common.click.HandClicks;
 /**
  * Routes each hand's part of a right-click through kalic0re's {@code common/click}, so a click
  * the server takes with one hand is not answered again with the other. A vanilla client sees a
- * catalyst as a heart of the sea, which does nothing to a block, so it offers the click to both
+ * catalyst as a nether star, which does nothing to a block, so it offers the click to both
  * hands; a catalyst in each would otherwise both act on one frame.
  */
 @Mixin(ServerGamePacketListenerImpl.class)
