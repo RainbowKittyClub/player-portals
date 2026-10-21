@@ -10,9 +10,10 @@ import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.PortalPermissions;
 
 /**
- * Keeps a lit portal's blocks, interior and ring, from players without
- * {@code playerportals.break}. Anything else that breaks a frame block (a piston, an explosion,
- * an enderman) collapses the portal as it would a nether portal.
+ * Keeps a lit portal's interior from every player, creative ones too, and its ring from players
+ * without {@code playerportals.break}: only a frame block taken away ends a portal. Anything else
+ * that breaks a frame block (a piston, an explosion, an enderman) collapses the portal as it
+ * would a nether portal.
  */
 public final class PortalProtection {
     private PortalProtection() {
@@ -26,9 +27,13 @@ public final class PortalProtection {
                 return true;
             }
             Portals portals = PlayerPortals.portals();
-            boolean portal = state.is(portals.block())
-                    || portals.portalOwning(serverLevel, pos) != null;
-            if (!portal || PortalPermissions.mayBreak(serverPlayer)) {
+            // The client takes the light or barrier it sees for a block it may break, as one
+            // holding a light block does; it gets it back unbroken.
+            if (state.is(portals.block())) {
+                return false;
+            }
+            if (portals.portalOwning(serverLevel, pos) == null
+                    || PortalPermissions.mayBreak(serverPlayer)) {
                 return true;
             }
             PlayerPortals.say(serverPlayer, "break.no_permission");
