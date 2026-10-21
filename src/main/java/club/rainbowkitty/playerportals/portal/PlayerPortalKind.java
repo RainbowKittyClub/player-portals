@@ -105,8 +105,9 @@ public final class PlayerPortalKind implements PortalKind {
         MinecraftServer server = level.getServer();
         Portals portals = PlayerPortals.portals();
         PortalFrame to = PortalLinks.destinationOf(server, frame);
+        // A destination with no way out takes no one, without a word.
         if (to == null) {
-            return refuse(entity, "portal.unlinked");
+            return null;
         }
         ServerLevel toLevel = server.getLevel(to.dimension());
         boolean recorded = portals.has(server, to);

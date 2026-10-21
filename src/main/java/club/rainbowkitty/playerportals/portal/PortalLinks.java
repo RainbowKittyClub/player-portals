@@ -20,12 +20,14 @@ import net.minecraft.world.level.saveddata.SavedDataType;
 import club.rainbowkitty.kalic0re.common.portal.PortalFrame;
 import club.rainbowkitty.kalic0re.common.portal.Portals;
 import club.rainbowkitty.playerportals.PlayerPortals;
+import club.rainbowkitty.playerportals.PortalSettings;
 
 /**
  * Where each lit portal leads, saved with the server. A two-way pair is two links; a one-way
  * portal is one. A portal stays lit while any link enters or leaves it, so the far end of
  * one-way portals stays as a destination with no way out; one left without a link is faded
- * through the framework, which comes back here to drop its links in turn.
+ * through the framework, which comes back here to drop its links in turn. A destination with no
+ * way out is sealed while {@link PortalSettings#ONE_WAY_DESTINATIONS_USE_BARRIERS} is on.
  */
 public final class PortalLinks extends SavedData {
     private static final Codec<PortalLinks> CODEC = Link.CODEC.listOf()
@@ -101,7 +103,15 @@ public final class PortalLinks extends SavedData {
         }
         links.destinations.put(source, destination);
         links.setDirty();
+        reseal(server, destination);
         return true;
+    }
+
+    /** Seals or unseals every lit portal by whether it has a way out, as the setting says. */
+    public static void resealAll(MinecraftServer server) {
+        for (PortalFrame frame : PlayerPortals.portals().lit(server)) {
+            reseal(server, frame);
+        }
     }
 
     /**
@@ -124,6 +134,8 @@ public final class PortalLinks extends SavedData {
         for (PortalFrame source : sources) {
             if (!links.isLinked(source)) {
                 portals.fade(server, source);
+            } else {
+                reseal(server, source);
             }
         }
         if (onward != null && !links.isLinked(onward)) {
@@ -150,6 +162,14 @@ public final class PortalLinks extends SavedData {
                 portals.fade(server, frame);
             }
         }
+        resealAll(server);
+    }
+
+    // Seals lit frame when it leads nowhere and the setting asks for barriers, else unseals it.
+    private static void reseal(MinecraftServer server, PortalFrame frame) {
+        boolean sealed = PortalSettings.ONE_WAY_DESTINATIONS_USE_BARRIERS.get(server)
+                && !of(server).destinations.containsKey(frame);
+        PlayerPortals.portals().seal(server, frame, sealed);
     }
 
     // Whether any link enters or leaves frame.

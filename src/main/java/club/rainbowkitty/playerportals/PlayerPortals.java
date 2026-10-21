@@ -76,6 +76,7 @@ public final class PlayerPortals implements ModInitializer {
     @Override
     public void onInitialize() {
         text = FallbackText.load(MOD_ID);
+        PortalSettings.register();
         CatalystComponents.init();
         FrameBlocks.init();
         PortalMaterials.init();
