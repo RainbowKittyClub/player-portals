@@ -88,8 +88,9 @@ public final class PlayerPortals implements ModInitializer {
         PortalProtection.register();
         PortalLinks.register();
         CatalystCrafting.register();
-        // Not markAsRequired(): without the pack a catalyst shows as a nether star, the
-        // frame block as crying obsidian and the portal as a nether portal.
+        // Required, so singleplayer turns Polymer's own pack on too. A server can still let players
+        // in without it (auto-host mod_override false); they see nether stars and crying obsidian.
         PolymerResourcePackUtils.addModAssets(MOD_ID);
+        PolymerResourcePackUtils.markAsRequired();
     }
 }
