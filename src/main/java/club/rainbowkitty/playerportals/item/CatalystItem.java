@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import org.jspecify.annotations.Nullable;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -22,6 +24,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -35,7 +38,7 @@ import club.rainbowkitty.playerportals.portal.PortalEffects;
 
 /**
  * An item that works in two clicks on frame blocks: the first attunes it to that frame, the
- * second acts on the pair. A vanilla client sees a heart of the sea under this item's name, with
+ * second acts on the pair. A vanilla client sees a nether star under this item's name, with
  * the attuned frame as a lore line; a client with the resource pack sees the item's own art.
  * A click on any other block passes it on, and sneak-use aimed at no block clears the
  * attunement. Every line is said in chat.
@@ -48,7 +51,7 @@ public abstract class CatalystItem extends PolymerModelItem {
     private final ResourceKey<Item> key;
 
     protected CatalystItem(ResourceKey<Item> key, Properties properties) {
-        super(Items.HEART_OF_THE_SEA, key.identifier(), properties.setId(key).stacksTo(1)
+        super(Items.NETHER_STAR, key.identifier(), properties.setId(key).stacksTo(1)
                 .component(DataComponents.LORE, new ItemLore(List.of(hint(key)))));
         this.key = key;
     }
@@ -91,6 +94,19 @@ public abstract class CatalystItem extends PolymerModelItem {
         return InteractionResult.CONSUME;
     }
 
+    // Polymer sends hasFoil() as an explicit glint, so a stack with none of its own would hide
+    // the stand-in's built-in one; its default value drops out of the patch instead.
+    @Override
+    public ItemStack getPolymerItemStack(ItemStack stack, TooltipFlag flag, PacketContext context,
+            HolderLookup.Provider lookup) {
+        ItemStack out = super.getPolymerItemStack(stack, flag, context, lookup);
+        if (!stack.has(DataComponents.ENCHANTMENT_GLINT_OVERRIDE) && !stack.isEnchanted()) {
+            out.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE,
+                    out.getPrototype().get(DataComponents.ENCHANTMENT_GLINT_OVERRIDE));
+        }
+        return out;
+    }
+
     /** Whether {@code player} may use this item at all. */
     protected abstract boolean permitted(ServerPlayer player);
 
@@ -100,7 +116,7 @@ public abstract class CatalystItem extends PolymerModelItem {
     /**
      * This item's answer to a click on a frame block beside {@code frame}, a complete frame:
      * {@code SUCCESS_SERVER} when it did something, so the server swings the arm for a client that
-     * holds a heart of the sea and predicts nothing, else {@code CONSUME}, which swings for no one.
+     * holds a nether star and predicts nothing, else {@code CONSUME}, which swings for no one.
      */
     protected abstract InteractionResult onFrame(ServerLevel level, ServerPlayer player,
             ItemStack stack, PortalFrame frame);

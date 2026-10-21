@@ -87,7 +87,7 @@ public final class PlayerPortals implements ModInitializer {
         PortalProtection.register();
         PortalLinks.register();
         CatalystCrafting.register();
-        // Not markAsRequired(): without the pack a catalyst shows as a heart of the sea, the
+        // Not markAsRequired(): without the pack a catalyst shows as a nether star, the
         // frame block as crying obsidian and the portal as a nether portal.
         PolymerResourcePackUtils.addModAssets(MOD_ID);
     }
