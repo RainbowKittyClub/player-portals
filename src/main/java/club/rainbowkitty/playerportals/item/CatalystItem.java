@@ -28,6 +28,7 @@ import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.phys.HitResult;
 
 import club.rainbowkitty.kalic0re.common.item.PolymerModelItem;
@@ -37,11 +38,12 @@ import club.rainbowkitty.playerportals.PlayerPortals;
 import club.rainbowkitty.playerportals.portal.PortalEffects;
 
 /**
- * An item that works in two clicks on frame blocks: the first attunes it to that frame, the
- * second acts on the pair. A vanilla client sees a nether star under this item's name, with a
- * lore line saying whether it is attuned and to which frame corner; a client with the resource
- * pack sees the item's own art. A click on any other block passes it on, and sneak-use aimed at
- * no block clears the attunement. Nothing is said in chat; a refused click just does nothing.
+ * An item that works on frame blocks: a sneaking click attunes it to that frame and never links,
+ * a plain click acts on the attuned frame and the clicked one and never attunes. A vanilla client
+ * sees a nether star under this item's name, with a lore line saying whether it is attuned and to
+ * which frame corner; a client with the resource pack sees the item's own art. A click on any
+ * other block passes it on, and sneak-use aimed at no block clears the attunement. Nothing is said
+ * in chat; a refused click fizzles like a punched-out fire.
  */
 public abstract class CatalystItem extends PolymerModelItem {
     private final ResourceKey<Item> key;
@@ -74,14 +76,16 @@ public abstract class CatalystItem extends PolymerModelItem {
             return InteractionResult.PASS;
         }
         if (!permitted(player)) {
-            return refuse();
+            return refuse(level, clicked);
         }
         Optional<PortalFrame> frame =
                 finder.findAround(level, clicked, context.getClickedFace(), maxSize());
         if (frame.isEmpty()) {
-            return refuse();
+            return refuse(level, clicked);
         }
-        return onFrame(level, player, context.getItemInHand(), frame.get());
+        ItemStack stack = context.getItemInHand();
+        return player.isShiftKeyDown() ? onAttune(level, player, stack, frame.get(), clicked)
+                : onLink(level, player, stack, frame.get(), clicked);
     }
 
     // CONSUME, not SUCCESS: Polymer turns a success into a server-sent swing, which a vanilla
@@ -119,12 +123,16 @@ public abstract class CatalystItem extends PolymerModelItem {
     protected abstract int maxSize();
 
     /**
-     * This item's answer to a click on a frame block beside {@code frame}, a complete frame:
-     * {@code SUCCESS_SERVER} when it did something, so the server swings the arm for a client that
-     * holds a nether star and predicts nothing, else {@code CONSUME}, which swings for no one.
+     * This item's answer to a sneaking click at {@code clicked}, a frame block beside the complete
+     * {@code frame}: {@code SUCCESS_SERVER} when it attuned, so the server swings the arm for a
+     * client that holds a nether star and predicts nothing, else a {@link #refuse}.
      */
-    protected abstract InteractionResult onFrame(ServerLevel level, ServerPlayer player,
-            ItemStack stack, PortalFrame frame);
+    protected abstract InteractionResult onAttune(ServerLevel level, ServerPlayer player,
+            ItemStack stack, PortalFrame frame, BlockPos clicked);
+
+    /** As {@link #onAttune}, for a plain click, which links when it can. */
+    protected abstract InteractionResult onLink(ServerLevel level, ServerPlayer player,
+            ItemStack stack, PortalFrame frame, BlockPos clicked);
 
     /** {@code frame}'s corner with the smallest coordinates in its plane, for a player. */
     protected static MutableComponent origin(PortalFrame frame) {
@@ -149,8 +157,9 @@ public abstract class CatalystItem extends PolymerModelItem {
         return InteractionResult.SUCCESS_SERVER;
     }
 
-    /** A refused click: nothing happens, and no one swings. */
-    protected static InteractionResult refuse() {
+    /** A refused click: the fire-extinguish fizzle at {@code at}, and no one swings. */
+    protected static InteractionResult refuse(ServerLevel level, BlockPos at) {
+        level.levelEvent(null, LevelEvent.SOUND_EXTINGUISH_FIRE, at, 0);
         return InteractionResult.CONSUME;
     }
 

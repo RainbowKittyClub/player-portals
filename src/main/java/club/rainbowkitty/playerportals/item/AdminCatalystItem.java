@@ -1,6 +1,7 @@
 package club.rainbowkitty.playerportals.item;
 
 import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,21 +38,24 @@ public final class AdminCatalystItem extends CatalystItem {
     }
 
     @Override
-    protected InteractionResult onFrame(ServerLevel level, ServerPlayer player, ItemStack stack,
-            PortalFrame frame) {
-        if (player.isShiftKeyDown()) {
-            return attuneTo(level, stack, frame);
-        }
+    protected InteractionResult onAttune(ServerLevel level, ServerPlayer player, ItemStack stack,
+            PortalFrame frame, BlockPos clicked) {
+        return attuneTo(level, stack, frame);
+    }
+
+    @Override
+    protected InteractionResult onLink(ServerLevel level, ServerPlayer player, ItemStack stack,
+            PortalFrame frame, BlockPos clicked) {
         PortalFrame destination = stack.get(CatalystComponents.ATTUNED);
         if (destination == null || destination.equals(frame) || hasPortal(level, frame)) {
-            return refuse();
+            return refuse(level, clicked);
         }
         if (standingLevel(level.getServer(), destination) == null) {
             attune(stack, null);
-            return refuse();
+            return refuse(level, clicked);
         }
         if (!PortalLinks.linkOneWay(level.getServer(), frame, destination)) {
-            return refuse();
+            return refuse(level, clicked);
         }
         PlayerPortals.say(player, "admin.linked", origin(destination));
         return InteractionResult.SUCCESS_SERVER;
