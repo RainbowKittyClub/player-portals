@@ -24,6 +24,15 @@
     "playerportals.mixins.json"
   ],
 
+  "custom": {
+    "fawe:lifecycle": {
+      "route": "native",
+      "blocks": [
+        "playerportals:void_infused_deepslate"
+      ]
+    }
+  },
+
   "depends": {
     "fabricloader": ">=${project.fabric_loader_version}",
     "fabric-api": "*",
